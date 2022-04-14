@@ -1,0 +1,80 @@
+---
+title: "Tidy Census Data Cleaning and Download"
+author: "Nicholas Di and Erin Franke"
+date: '2022-04-07'
+output: html_document
+---
+
+Load libraries and data:
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(survey)
+library(srvyr)
+library(sf)
+
+#Tidy census codebook
+census_api_key("f0d9e7b9eb0a91da1b9d33277cf20e264c19e197", install = TRUE, overwrite=TRUE)
+v19<-load_variables(2019, "acs5", cache = TRUE)
+
+#read in lead data and the census tract shape file. Make this shape file as sf object
+lead <- read_csv("DataShapefiles/ChildhoodLeadTractData/ChildhoodLeadTract_2015_TO_2019_TestYears.csv")
+census_tracts <- st_read("DataShapefiles/tl_2018_27_tract")
+tracts <- sf::st_as_sf(census_tracts)
+
+#choose variables of interest from tidycensus 
+MN1 <- get_acs(geography = "tract", 
+              variables = c(medincome = "B19013_001",
+                            medage ="B01002_001",
+                            Pop = 'B01003_001',
+                            NumHouse = "B25003_001", 
+                            numFamilyHouseholds = "B11001_002",
+                            numNonFamilyHouseholds = "B11001_007",
+                            totalhouseholds = "B11001_001",
+                            builtpre1940 = "B25034_011",
+                            built1940to1949 = "B25034_010", 
+                            built1950to1959 = "B25034_009", 
+                            built1960to1969 = "B25034_008",
+                            built1970to1979 = "B25034_007", 
+                            built1980to1989 = "B25034_006", 
+                            built1990to1999 = "B25034_005", 
+                            built2000to2009 = "B25034_004", 
+                            built2010to2013 = "B25034_003", 
+                            built2014tonow = "B25034_002", 
+                            builttotal = "B25034_001"), 
+              state = "MN", 
+              year = 2019,
+              output = "wide")
+```
+
+Tidycensus data cleaning
+```{r}
+MN1_clean <- MN1 %>% 
+  mutate(GEOID = as.numeric(GEOID)) %>% 
+  select(-ends_with("M")) %>%
+  rename("tract_county_name" = "NAME") %>%
+  mutate(propFamilyHouseholds = round(numFamilyHouseholdsE/totalhouseholdsE,3), 
+         propNonFamilyHouseholds = round(numNonFamilyHouseholdsE/totalhouseholdsE,3), 
+         propHomesBuiltPre1950 = round((builtpre1940E + built1940to1949E)/builttotalE,3),
+         propHomesBuilt1950to1969 = round((built1950to1959E+built1960to1969E)/builttotalE,3), 
+         propHomesBuilt1970to1989 = round((built1970to1979E+built1980to1989E)/builttotalE,3), 
+         propHomesBuilt1990to2009 = round((built1990to1999E+built2000to2009E)/builttotalE,3), 
+         propHomesBuilt2010tonow = round((built2010to2013E+built2014tonowE)/builttotalE,3)) %>%
+  select(-numFamilyHouseholdsE, -numNonFamilyHouseholdsE, -totalhouseholdsE, -starts_with("built"))
+```
+
+Lead tracts data cleaning: join with the shape file and filter for 7 Twin Cities metropolitan counties. Then join with the tidycensus data. Clean the lead data (drop the ">,9% observations and "n/a", these in total accounted for about 20 census tracts) and create a binary variable for high lead levels (greater than 1% of children tested have a high lead level). 
+```{r}
+lead_census <- tracts %>%
+  mutate(GEOID = as.numeric(GEOID)) %>%
+  filter(COUNTYFP %in% c("003","019","037", "053","123", "139","163")) %>%
+  left_join(lead, by = c("GEOID" = "tract_id")) %>%
+    left_join(MN1_clean, by = "GEOID") %>%
+  mutate(per_eblls_label = replace(per_eblls_label, per_eblls_label == "About 0.9%", "0.9%")) %>% 
+  filter(per_eblls_label != "> 0.9%" & per_eblls_label != "n/a") %>% 
+  mutate(percent = 0.01*as.numeric(gsub("%", '',per_eblls_label))) %>% 
+  mutate(HighLead = case_when(percent <= 0.01 ~ 0, 
+                              percent > 0.01 ~1)) 
+
+save(lead_census, file = "DataShapefiles/lead_spatial.RData")
+```

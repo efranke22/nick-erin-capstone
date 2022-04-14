@@ -1,0 +1,164 @@
+---
+title: "Data Visualization"
+author: "Erin Franke and Nicholas Di"
+date: "4/12/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(survey)
+library(srvyr)
+library(sf)
+library(ggtext)
+
+load("DataShapefiles/lead_spatial.RData")
+river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
+```
+
+Start by looking at where lead levels are high: 
+```{r}
+river_lakes_big <- river_lakes %>%
+  filter(AREA_ACRES >= 500)
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill=as.factor(HighLead)), lwd = 0.2, color = "white")+
+  geom_sf(data = river_lakes_big, fill = "lightblue",color = "lightblue")+
+  theme_classic()+
+  labs(title = "Elevated blood lead levels in the Twin Cities", subtitle = "<strong><span style='color:red'>Red tracts have at least 1% of children tested with high elevated blood levels</span></strong></b>")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        legend.position = "none", 
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono"), 
+        plot.subtitle = element_markdown(family = "mono", size = 8))+
+  scale_fill_manual(values = c("navy", "red"))
+  #scale_fill_viridis_c(labels = scales::comma)
+```
+
+Visualize a few different variables
+```{r}
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill = medincomeE), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Median family income by Twin Cities census tract", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono"))+
+  scale_fill_viridis_b(labels = scales::comma)
+
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill = propFamilyHouseholds), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Proportion of family households by Twin Cities census tract", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill = propHomesBuiltPre1950), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Proportion of homes built before 1950 by Twin Cities census tract", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill = (propHomesBuiltPre1950+propHomesBuilt1950to1969)), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Proportion of homes built before 1970 by Twin Cities census tract", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill = medageE), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Estimated median age of Twin Cities census tracks", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+```
+
+Looking specifically at some high lead tracts in Ramsey County: 
+```{r}
+lead_census %>%
+  filter(primary_county == "Ramsey County") %>%
+  ggplot()+
+  geom_sf(aes(fill=as.factor(HighLead)), lwd = 0.2, color = "white")+
+  #geom_sf(data = river_lakes_big, fill = "lightblue",color = "lightblue")+
+  theme_classic()+
+  labs(title = "Elevated blood lead levels in the Twin Cities", subtitle = "<strong><span style='color:red'>Red tracts have at least 1% of children tested with high elevated blood levels</span></strong></b>")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        legend.position = "none", 
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono"), 
+        plot.subtitle = element_markdown(family = "mono", size = 8))+
+  scale_fill_manual(values = c("navy", "red"))
+
+lead_census %>%
+  filter(primary_county == "Ramsey County") %>%
+  ggplot()+
+  geom_sf(aes(fill = propHomesBuiltPre1950), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Proportion of homes built before 1950 by Twin Cities census tract", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+```
+
+
+Trying out a simple `lm()` modeling 
+```{r}
+lead_census_clean <- lead_census %>%
+  filter(!is.na(medincomeE), !is.na(medageE), !is.na(PopE))
+lm_continuous <- lm(percent ~ medincomeE + medageE + PopE, data = lead_census_clean)
+lead_census_clean$lm_resid <- resid(lm_continuous)
+
+lead_census_clean %>% filter(primary_county == "Ramsey County") %>%
+  ggplot() +
+  geom_sf(aes(fill = lm_resid)) +
+  scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "OLS model residuals for lead levels in Ramsey County", fill = "Residuals")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+```
+
+

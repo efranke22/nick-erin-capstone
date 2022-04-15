@@ -41,7 +41,18 @@ MN1 <- get_acs(geography = "tract",
                             built2000to2009 = "B25034_004", 
                             built2010to2013 = "B25034_003", 
                             built2014tonow = "B25034_002", 
-                            builttotal = "B25034_001"), 
+                            builttotal = "B25034_001",
+                            nurseryschool = "B14001_003",
+                            kindergarden = "B14001_004"),
+                            # lessthan9999 = "B06010PR_026",
+                            # lessthan14999 = "B06010PR_027",
+                            # lessthan24999 = "B06010PR_028",
+                            # lessthan34999 = "B06010PR_029",
+                            # lessthan49999 = "B06010PR_030",
+                            # lessthan64999 = "B06010PR_031",
+                            # lessthan74999 = "B06010PR_032",
+                            # morethan75000 = "B06010PR_033"),
+
               state = "MN", 
               year = 2019,
               output = "wide")
@@ -64,6 +75,7 @@ MN1_clean <- MN1 %>%
 ```
 
 Lead tracts data cleaning: join with the shape file and filter for 7 Twin Cities metropolitan counties. Then join with the tidycensus data. Clean the lead data (drop the ">,9% observations and "n/a", these in total accounted for about 20 census tracts) and create a binary variable for high lead levels (greater than 1% of children tested have a high lead level). 
+
 ```{r}
 lead_census <- tracts %>%
   mutate(GEOID = as.numeric(GEOID)) %>%

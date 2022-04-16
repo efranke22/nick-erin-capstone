@@ -19,15 +19,37 @@ library(ggtext)
 
 load("DataShapefiles/lead_spatial.RData")
 river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
+roads <- st_read("DataShapefiles/tl_2019_27_prisecroads")
+roads_sub <- st_crop(roads,st_bbox(lead_census))
 ```
 
-Start by looking at where lead levels are high: 
+Where our analysis is taking place: 
+```{r}
+lead_census %>%
+  ggplot()+
+  geom_sf(fill = "navy", lwd = 0.2, color = "white")+
+  geom_sf(data = roads, fill = "lightblue",color = "lightblue")+
+  theme_classic()+
+  labs(title = "Twin Cities Metropolitan region on MN road map")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        legend.position = "none", 
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono"), 
+        plot.subtitle = element_markdown(family = "mono", size = 8))+
+  scale_fill_manual(values = c("navy", "red"))
+```
+
+Start by looking at where lead levels are high:
 ```{r}
 river_lakes_big <- river_lakes %>%
   filter(AREA_ACRES >= 500)
+roads_metro <- st_crop(roads,st_bbox(lead_census))
 lead_census %>%
   ggplot()+
   geom_sf(aes(fill=as.factor(HighLead)), lwd = 0.2, color = "white")+
+  #geom_sf(data = roads_metro, fill = "green",color = "green", lwd= 0.3)+
   geom_sf(data = river_lakes_big, fill = "lightblue",color = "lightblue")+
   theme_classic()+
   labs(title = "Elevated blood lead levels in the Twin Cities", subtitle = "<strong><span style='color:red'>Red tracts have at least 1% of children tested with high elevated blood levels</span></strong></b>")+
@@ -43,6 +65,7 @@ lead_census %>%
 ```
 
 Visualize a few different variables
+
 ```{r}
 lead_census %>%
   ggplot()+
@@ -105,60 +128,75 @@ lead_census %>%
   scale_fill_viridis_c()
 ```
 
-Looking specifically at some high lead tracts in Ramsey County: 
+Looking specifically at some high lead tracts in Ramsey and Hennepin County:
 ```{r}
-lead_census %>%
-  filter(primary_county == "Ramsey County") %>%
+lead_ramsey <- lead_census %>%
+  filter(primary_county == "Ramsey County") 
+roads_ramsey<- st_crop(roads,st_bbox(lead_ramsey))
+water_ramsey <- st_crop(river_lakes, st_bbox(lead_ramsey))
+lead_ramsey %>%
   ggplot()+
-  geom_sf(aes(fill=as.factor(HighLead)), lwd = 0.2, color = "white")+
-  #geom_sf(data = river_lakes_big, fill = "lightblue",color = "lightblue")+
+  geom_sf(aes(fill=percent), lwd = 0.2, color = "white")+
+  geom_sf(data = roads_ramsey, fill = "green",color = "green", lwd= 0.3)+
   theme_classic()+
-  labs(title = "Elevated blood lead levels in the Twin Cities", subtitle = "<strong><span style='color:red'>Red tracts have at least 1% of children tested with high elevated blood levels</span></strong></b>")+
+  labs(title = "Proportion of children tested with elevated lead", subtitle = "blood levels in Ramsey County", fill = "")+
   theme(axis.line = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(),
-        legend.position = "none", 
+        #legend.position = "none", 
         plot.title.position = "plot", 
-        plot.title = element_markdown(family = "mono"), 
-        plot.subtitle = element_markdown(family = "mono", size = 8))+
-  scale_fill_manual(values = c("navy", "red"))
+        plot.title = element_markdown(family = "mono", size=8),
+        plot.subtitle = element_markdown(family = "mono", size=8),
+        legend.title = element_text(family="mono"))+
+  scale_fill_viridis_b(option = "inferno")
 
-lead_census %>%
-  filter(primary_county == "Ramsey County") %>%
+lead_hennepin <- lead_census %>%
+  filter(primary_county == "Hennepin County") 
+roads_hennepin<- st_crop(roads,st_bbox(lead_hennepin))
+water_hennepin <- st_crop(river_lakes, st_bbox(lead_hennepin))
+lead_hennepin %>%
   ggplot()+
-  geom_sf(aes(fill = propHomesBuiltPre1950), lwd = 0.2, color = "white")+
+  geom_sf(aes(fill=percent), lwd = 0.2, color = "white")+
+  geom_sf(data = roads_hennepin, fill = "green",color = "green", lwd= 0.3)+
   theme_classic()+
-  labs(title = "Proportion of homes built before 1950 by Twin Cities census tract", fill = "")+
+  labs(title = "Proportion of children tested with elevated lead", subtitle = "blood levels in Hennepin County", fill = "")+
   theme(axis.line = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(),
+        #legend.position = "none", 
         plot.title.position = "plot", 
-        plot.title = element_markdown(family = "mono", size = 9))+
-  scale_fill_viridis_c()
+        plot.title = element_markdown(family = "mono", size=8),
+        plot.subtitle = element_markdown(family = "mono", size=8),
+        legend.title = element_text(family="mono"))+
+  scale_fill_viridis_b(option = "inferno")
+
+lead_dakota <- lead_census %>%
+  filter(primary_county == "Dakota County") 
+roads_dakota<- st_crop(roads,st_bbox(lead_dakota))
+water_dakota <- st_crop(river_lakes, st_bbox(lead_dakota))
+lead_dakota %>%
+  ggplot()+
+  geom_sf(aes(fill=percent), lwd = 0.2, color = "white")+
+  geom_sf(data = roads_dakota, fill = "green",color = "green", lwd= 0.3)+
+  theme_classic()+
+  labs(title = "Proportion of children tested with elevated lead", subtitle = "blood levels in Dakota County", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        #legend.position = "none", 
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size=8),
+        plot.subtitle = element_markdown(family = "mono", size=8),
+        legend.title = element_text(family="mono"))+
+  scale_fill_viridis_b(option = "inferno")
 ```
 
-
-Trying out a simple `lm()` modeling 
+Looking at children tested using number of children in the tract aged 0-5. It may be better to use a certain number of tests as a point of whether a tract should be included or not as it seems somewhat common for there to be more tests in a tract than kids of testing age. 
 ```{r}
-lead_census_clean <- lead_census %>%
-  filter(!is.na(medincomeE), !is.na(medageE), !is.na(PopE))
-lm_continuous <- lm(percent ~ medincomeE + medageE + PopE, data = lead_census_clean)
-lead_census_clean$lm_resid <- resid(lm_continuous)
-
-lead_census_clean %>% filter(primary_county == "Ramsey County") %>%
-  ggplot() +
-  geom_sf(aes(fill = lm_resid)) +
-  scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
-  theme_classic()+
-  #geom_sf(data=areawater, fill="navy")+
-  labs(title = "OLS model residuals for lead levels in Ramsey County", fill = "Residuals")+
-  theme(axis.line = element_blank(), 
-        axis.text = element_blank(), 
-        axis.ticks = element_blank(), 
-        legend.title = element_text(family = "mono", size = 9),
-        plot.title = element_text(family = "mono", size =11), 
-        plot.title.position = "plot", 
-        legend.text = element_text(family = "mono"))
+lead_census %>%
+  mutate(prop_tested = tested/numChildtestingage) %>%
+  select(prop_tested, tested, numChildtestingage) %>%
+  arrange(desc(prop_tested))
 ```
 
 

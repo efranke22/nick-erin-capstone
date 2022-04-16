@@ -43,7 +43,10 @@ MN1 <- get_acs(geography = "tract",
                             built2014tonow = "B25034_002", 
                             builttotal = "B25034_001",
                             nurseryschool = "B14001_003",
-                            kindergarden = "B14001_004"),
+                            kindergarden = "B14001_004", 
+                            firstofourth = "B14001_005", 
+                            male0to5 = "B01001_003", 
+                            female0to5 = "B01001_027"),
                             # lessthan9999 = "B06010PR_026",
                             # lessthan14999 = "B06010PR_027",
                             # lessthan24999 = "B06010PR_028",
@@ -70,7 +73,8 @@ MN1_clean <- MN1 %>%
          propHomesBuilt1950to1969 = round((built1950to1959E+built1960to1969E)/builttotalE,3), 
          propHomesBuilt1970to1989 = round((built1970to1979E+built1980to1989E)/builttotalE,3), 
          propHomesBuilt1990to2009 = round((built1990to1999E+built2000to2009E)/builttotalE,3), 
-         propHomesBuilt2010tonow = round((built2010to2013E+built2014tonowE)/builttotalE,3)) %>%
+         propHomesBuilt2010tonow = round((built2010to2013E+built2014tonowE)/builttotalE,3), 
+         numChildtestingage = male0to5E + female0to5E) %>%
   select(-numFamilyHouseholdsE, -numNonFamilyHouseholdsE, -totalhouseholdsE, -starts_with("built"))
 ```
 

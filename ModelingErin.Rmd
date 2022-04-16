@@ -1,0 +1,147 @@
+---
+title: "Lead Modeling"
+author: "Erin Franke"
+date: "4/16/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(survey)
+library(srvyr)
+library(sf)
+library(ggtext)
+library(broom)
+library(spdep)
+
+load("DataShapefiles/lead_spatial.RData")
+river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
+roads <- st_read("DataShapefiles/tl_2019_27_prisecroads")
+roads_sub <- st_crop(roads,st_bbox(lead_census))
+```
+
+# Logistic model for High Lead 
+
+Try out a logistic model for `HighLead`:
+```{r}
+lead_census_clean <- lead_census %>%
+  filter(!is.na(medincomeE), !is.na(propHomesBuiltPre1950), !is.na(PopE))
+logistic_mod1 <- glm(HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, family = binomial())
+logistic_mod1 %>%
+  coef() %>%
+  exp()
+tidy(logistic_mod1)
+lead_census_clean$lm_resid <- resid(logistic_mod1)
+
+lead_census_clean %>% 
+  ggplot() +
+  geom_sf(aes(fill = lm_resid)) +
+  scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "Logistic model residuals for lead levels in Twin Cities Metro", fill = "Residuals")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+```
+
+Rook neighborhood structure
+```{r}
+rook <- poly2nb(lead_census_clean, queen = FALSE)
+metro_centroids <- st_centroid(st_geometry(lead_census_clean), of_largest_polygon = TRUE)
+nb_rook_net <- nb2lines(nb = rook, coords = metro_centroids, as_sf = TRUE)
+lead_census_clean %>%
+  ggplot()+
+  geom_sf(data = lead_census_clean, color = "gray", fill="lightblue")+
+  geom_sf(data=metro_centroids, lwd = 0.1)+
+  geom_sf(data = nb_rook_net)+
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "Rook neighborhood structure for Twin Cities Metro Area")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+```
+
+Strong evidence of spatial autocorrelation in logistic model:
+```{r}
+Wb <- nb2listw(rook, style = "B") #style = 'B' gives binary weights
+spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
+```
+
+Thinking about logistic CAR and SAR models to account for spatial autocorrelation - need to figure out how to do logistic model (it runs but not sure it is thinking of 0 and 1 as factor)
+```{r}
+library(spatialreg)
+# Convert Neighborhood Information to List (with weighting so that rows sum to 1)
+Ww <- nb2listw(rook, style = "W")
+# Fit SAR Model - this run but need to figure out it is the correct way for a logistic model
+mod_sar <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "SAR")
+summary(mod_sar)
+BIC(mod_sar)
+
+# fit the car model
+mod_car <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
+BIC(mod_car)
+```
+
+# Model for lead levels of census tracts that have high levels 
+
+```{r}
+high_lead_clean <- lead_census %>%
+  filter(!is.na(medincomeE), !is.na(propHomesBuiltPre1950), !is.na(PopE), HighLead == 1)
+highlead_mod1 <- lm(percent~ medincomeE + propHomesBuiltPre1950 + PopE, data = high_lead_clean)
+high_lead_clean$lm_resid <- resid(highlead_mod1)
+
+high_lead_clean %>% 
+  ggplot() +
+  geom_sf(aes(fill = lm_resid)) +
+  scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "OLS model residuals for high lead levels in Twin Cities Metro", fill = "Residuals")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+```
+
+Create rook neighborhood structure 
+```{r}
+queen_high <- poly2nb(high_lead_clean)
+high_centroids <- st_centroid(st_geometry(high_lead_clean), of_largest_polygon = TRUE)
+nb_queen_net <- nb2lines(nb = queen_high, coords = high_centroids, as_sf = TRUE)
+high_lead_clean %>%
+  ggplot()+
+  geom_sf(data = high_lead_clean, color = "gray", fill="lightblue")+
+  geom_sf(data=high_centroids, lwd = 0.1)+
+  geom_sf(data = nb_queen_net)+
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "Rook neighborhood structure for high lead centroids")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+```
+
+Problem with this type of model: empty neighbor sets found.
+```{r}
+Wb <- nb2listw(queen_high, style = "B") #style = 'B' gives binary weights
+spdep::moran.test(high_lead_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
+```
+

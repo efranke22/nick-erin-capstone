@@ -1,6 +1,6 @@
 ---
 title: "Lead Modeling"
-author: "Erin Franke"
+author: "Nick's Edits"
 date: "4/16/2022"
 output: html_document
 ---
@@ -144,72 +144,4 @@ Problem with this type of model: empty neighbor sets found.
 Wb <- nb2listw(queen_high, style = "B") #style = 'B' gives binary weights
 spdep::moran.test(high_lead_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
 ```
-
-##Nick Trying KNN
-
-Creating KNN Network 
-
-```{r}
-knn <- knn2nb(knearneigh(metro_centroids, k = 4))
-nb_knn_net <- nb2lines(nb = knn, coords = metro_centroids, as_sf = TRUE)
-
-lead_census_clean$X <- st_coordinates(metro_centroids)[,1]
-lead_census_clean$Y <- st_coordinates(metro_centroids)[,2]
-#Will have X and Y cord for fit me
-
-
-lead_census_clean %>%
-  ggplot()+
-  geom_sf(data = lead_census_clean, color = "gray", fill="lightblue")+
-  geom_sf(data=metro_centroids, lwd = 0.1)+
-  geom_sf(data = nb_knn_net)+
-  theme_classic()+
-  #geom_sf(data=areawater, fill="navy")+
-  labs(title = "KNN neighborhood structure for Twin Cities Metro Area")+
-  theme(axis.line = element_blank(), 
-        axis.text = element_blank(), 
-        axis.ticks = element_blank(), 
-        plot.title = element_text(family = "mono", size =11), 
-        plot.title.position = "plot")
-```
-
-```{r}
-Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
-spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)
-
-#Error Here Note Sure
-```
-
-Modeling SAR Under KNN 
-```{r}
-#Add X and Y Cord to Census Tract 
-
-Ww <- nb2listw(knn, style = "W")
-Wb <- nb2listw(knn, style = "B")
-
-# Fit SAR Model - this run but need to figure out it is the correct way for a logistic model
-mod_sar_knn <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "SAR")
-summary(mod_sar_knn)
-BIC(mod_sar_knn)
-
-library(spaMM)
-
-fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + PopE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=lead_census_clean,control.HLfit = list(algebra='decorr'))
-
-
-# Fit CAR Model - this run but need to figure out it is the correct way for a logistic model
-mod_car_knn <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
-summary(mod_car_knn)
-BIC(mod_car_knn)
-```
-
-```{r}
-high_lead_clean$sar_resid_knn <- resid(mod_sar_knn)
-spdep::moran.test(high_lead_clean$sar_resid_knn, Wb, alternative = "two.sided", randomisation = TRUE)
-
-high_lead_clean$car_resid_knn <- resid(mod_car_knn)
-spdep::moran.test(high_lead_clean$car_resid_knn, Wb, alternative = "two.sided", randomisation = TRUE)
-```
-
-
 

@@ -25,6 +25,7 @@ library(sf)
 library(ggtext)
 library(broom)
 library(spdep)
+library(janitor)
 
 load("DataShapefiles/lead_spatial.RData")
 river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
@@ -51,4 +52,7 @@ lead_census_clean <- lead_census_clean %>%
 lead_census_clean %>%  st_drop_geometry() %>% ggplot(aes(y=tested/numChildtestingage, x = percent)) +
   geom_point() 
 ```
+
+
+
 

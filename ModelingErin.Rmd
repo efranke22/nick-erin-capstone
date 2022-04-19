@@ -121,14 +121,15 @@ high_lead_clean %>%
 
 Create rook neighborhood structure 
 ```{r}
-queen_high <- poly2nb(high_lead_clean)
-high_centroids <- st_centroid(st_geometry(high_lead_clean), of_largest_polygon = TRUE)
-nb_queen_net <- nb2lines(nb = queen_high, coords = high_centroids, as_sf = TRUE)
+high_metro_centroids <- st_centroid(st_geometry(high_lead_clean), of_largest_polygon = TRUE)
+knn <- knn2nb(knearneigh(high_metro_centroids, k = 4))
+nb_knn_net <- nb2lines(nb = knn, coords = high_metro_centroids, as_sf = TRUE)
+
 high_lead_clean %>%
   ggplot()+
   geom_sf(data = high_lead_clean, color = "gray", fill="lightblue")+
-  geom_sf(data=high_centroids, lwd = 0.1)+
-  geom_sf(data = nb_queen_net)+
+  geom_sf(data=high_metro_centroids, lwd = 0.1)+
+  geom_sf(data = nb_knn_net)+
   theme_classic()+
   #geom_sf(data=areawater, fill="navy")+
   labs(title = "Rook neighborhood structure for high lead centroids")+
@@ -139,11 +140,30 @@ high_lead_clean %>%
         plot.title.position = "plot")
 ```
 
-Problem with this type of model: empty neighbor sets found.
+OLS model shows evidence of spatial correlation. 
 ```{r}
-Wb <- nb2listw(queen_high, style = "B") #style = 'B' gives binary weights
+Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
 spdep::moran.test(high_lead_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
 ```
+
+```{r}
+library(spatialreg)
+# Convert Neighborhood Information to List (with weighting so that rows sum to 1)
+Ww <- nb2listw(knn, style = "W")
+# Fit SAR Model - this run but need to figure out it is the correct way for a logistic model
+mod_sar <- spautolm(formula = percent~ propHomesBuiltPre1950 + medincomeE + PopE, data = high_lead_clean, listw = Ww, family = "SAR")
+summary(mod_sar)
+BIC(mod_sar)
+
+high_lead_clean$mod_sar_knn <- resid(mod_sar)
+spdep::moran.test(high_lead_clean$mod_sar_knn, Wb, alternative = "two.sided", randomisation = TRUE)
+
+# fit the car model
+mod_car <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
+BIC(mod_car)
+```
+
+
 
 ##Nick Trying KNN
 

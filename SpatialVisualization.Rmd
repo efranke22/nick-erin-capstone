@@ -192,48 +192,4 @@ lead_dakota %>%
   scale_fill_viridis_b(option = "inferno")
 ```
 
-Looking at children tested using number of children in the tract aged 0-5. It may be better to use a certain number of tests as a point of whether a tract should be included or not as it seems somewhat common for there to be more tests in a tract than kids of testing age. 
-```{r}
-lead_census %>%
-  mutate(prop_tested = tested/numChildtestingage) %>%
-  select(prop_tested, tested, numChildtestingage) %>%
-  arrange(desc(prop_tested))
-```
 
-Looking at testing variable and relationships:
-- High income census tracts tend to not have high lead \
-```{r}
-lead_testing <- lead_census_clean %>%
-  st_drop_geometry() %>%
-  mutate(testRatio = tested/numChildtestingage, 
-         CensusAgeE = propHomesBuiltPre1950 * runif(1, 72,122) + propHomesBuilt1950to1969*62.5 + propHomesBuilt1970to1989*42.5 + propHomesBuilt1990to2009*22.5 + propHomesBuilt2010tonow*6, highIncome = case_when(medincomeE > 100000 ~ "highInc",
-                                TRUE ~ "lowerInc"),
-         Homecat = cut(CensusAgeE, 3), 
-         multipleTest = case_when(testRatio > 1 ~ "manyTest",
-                                  TRUE ~ "lessTest"))
-  
-lead_testing %>%
-  ggplot(aes(x=medincomeE, y=testRatio, color=as.factor(HighLead)))+
-  geom_point()
-
-lead_testing %>%
-  ggplot(aes(x=CensusAgeE, y=testRatio, color=as.factor(HighLead)))+
-  geom_point()
-
-# new homes get tested less often, especially with low lead levels
-# older homes get tested more, especially when with higher lead levels
-lead_testing %>%
-  tabyl(Homecat, multipleTest, HighLead)
-
-# if you have high lead, income isn't necessarily a factor for how much you are tested
-lead_testing %>%
-  filter(HighLead == 1) %>%
-  ggplot(aes(x=medincomeE, fill = multipleTest))+
-  geom_density(alpha=0.5)+
-  theme_classic()+
-  scale_fill_manual(values = c("red", "navy"))
-
-lead_testing %>%
-  group_by(HighLead, multipleTest) %>%
-  summarize(mean(NumHouseE),mean(CensusAgeE), mean(medincomeE), mean(PopE), mean(medageE))
-```

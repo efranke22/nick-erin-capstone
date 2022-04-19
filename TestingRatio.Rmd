@@ -1,14 +1,7 @@
 ---
 title: "Data Exploration Nursery"
-author: "NicholasDi"
+author: "NicholasDi and Erin Franke"
 date: '2022-04-18'
-output: html_document
----
-
----
-title: "Lead Modeling"
-author: "Erin Franke"
-date: "4/16/2022"
 output: html_document
 ---
 
@@ -81,6 +74,42 @@ lead_census_clean %>%
   scale_fill_viridis_c()
 ```
 
+Looking at testing variable and relationships:
+- High income census tracts tend to not have high lead \
+```{r}
+lead_testing <- lead_census_clean %>%
+  st_drop_geometry() %>%
+  mutate(testRatio = tested/numChildtestingage, 
+         CensusAgeE = propHomesBuiltPre1950 * runif(1, 72,122) + propHomesBuilt1950to1969*62.5 + propHomesBuilt1970to1989*42.5 + propHomesBuilt1990to2009*22.5 + propHomesBuilt2010tonow*6, highIncome = case_when(medincomeE > 100000 ~ "highInc",
+                                TRUE ~ "lowerInc"),
+         Homecat = cut(CensusAgeE, 3), 
+         multipleTest = case_when(testRatio > 1 ~ "manyTest",
+                                  TRUE ~ "lessTest"))
+  
+lead_testing %>%
+  ggplot(aes(x=medincomeE, y=testRatio, color=as.factor(HighLead)))+
+  geom_point()
 
+lead_testing %>%
+  ggplot(aes(x=CensusAgeE, y=testRatio, color=as.factor(HighLead)))+
+  geom_point()
+
+# new homes get tested less often, especially with low lead levels
+# older homes get tested more, especially when with higher lead levels
+lead_testing %>%
+  tabyl(Homecat, multipleTest, HighLead)
+
+# if you have high lead, income isn't necessarily a factor for how much you are tested
+lead_testing %>%
+  filter(HighLead == 1) %>%
+  ggplot(aes(x=medincomeE, fill = multipleTest))+
+  geom_density(alpha=0.5)+
+  theme_classic()+
+  scale_fill_manual(values = c("red", "navy"))
+
+lead_testing %>%
+  group_by(HighLead, multipleTest) %>%
+  summarize(mean(NumHouseE),mean(CensusAgeE), mean(medincomeE), mean(PopE), mean(medageE))
+```
 
 

@@ -194,10 +194,13 @@ BIC(mod_sar_knn)
 
 library(spaMM)
 
-fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + PopE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=lead_census_clean,control.HLfit = list(algebra='decorr'))
+logistic_attempt <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + PopE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=lead_census_clean,control.HLfit = list(algebra='decorr'))
+saveRDS(logistic_attempt, "Logistic_model.rds")
+my_model <- readRDS("Logistic_model.rds")
 
+summary(logistic_attempt)
 
-# Fit CAR Model - this run but need to figure out it is the correct way for a logistic model
+ # Fit CAR Model - this run but need to figure out it is the correct way for a logistic model
 mod_car_knn <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
 summary(mod_car_knn)
 BIC(mod_car_knn)
@@ -210,6 +213,7 @@ spdep::moran.test(high_lead_clean$sar_resid_knn, Wb, alternative = "two.sided", 
 high_lead_clean$car_resid_knn <- resid(mod_car_knn)
 spdep::moran.test(high_lead_clean$car_resid_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 ```
+
 
 
 

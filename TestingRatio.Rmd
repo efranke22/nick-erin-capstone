@@ -60,9 +60,26 @@ lead_census_clean %>% ggplot(aes(x=medageE, fill = factor(HighLead))) +
 lead_census_clean %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
   geom_density(alpha = 0.35)+
   facet_wrap(~TestingHigh)
+
+lead_census_clean <- lead_census_clean %>% 
+  mutate(WhyUNoTest = case_when(TestingHigh == 0 & CensusAgeE < 66 & HighLead == 1 ~ 1,
+                                TRUE ~ 0))
 ```
 Interesting that there is a population of people living in newer houses that aren't getting tested. 
 
+```{r}
+lead_census_clean %>%
+  ggplot()+
+  geom_sf(aes(fill = WhyUNoTest), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Places with Highlead, new houses but not getting tested", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+```
 
 
 

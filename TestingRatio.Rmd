@@ -32,9 +32,23 @@ roads <- st_read("DataShapefiles/tl_2019_27_prisecroads")
 roads_sub <- st_crop(roads,st_bbox(lead_census))
 ```
 
-# Logistic model for High Lead 
 
-Try out a logistic model for `HighLead`:
 ```{r}
 lead_census_clean <- lead_census %>%
   filter(!is.na(medincomeE), !is.na(propHomesBuiltPre1950), !is.na(PopE))
+```
+
+```{r}
+lead_census_clean %>% 
+  select(tested,numChildtestingage) %>% 
+  st_drop_geometry()
+lead_census_clean <- lead_census_clean %>% 
+  mutate(AREA = st_area(lead_census_clean))
+
+lead_census_clean <- lead_census_clean %>% 
+  mutate(AREA1 = as.vector(AREA))
+
+lead_census_clean %>%  st_drop_geometry() %>% ggplot(aes(y=tested/numChildtestingage, x = percent)) +
+  geom_point() 
+```
+

@@ -81,6 +81,8 @@ spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", ran
 ```
 
 Thinking about logistic CAR and SAR models to account for spatial autocorrelation - need to figure out how to do logistic model (it runs but not sure it is thinking of 0 and 1 as factor)
+
+#Using ROOK
 ```{r}
 library(spatialreg)
 # Convert Neighborhood Information to List (with weighting so that rows sum to 1)
@@ -119,7 +121,7 @@ high_lead_clean %>%
         legend.text = element_text(family = "mono"))
 ```
 
-Create rook neighborhood structure 
+Create KNN neighborhood structure (Rook some will have no neighbors)
 ```{r}
 high_metro_centroids <- st_centroid(st_geometry(high_lead_clean), of_largest_polygon = TRUE)
 knn <- knn2nb(knearneigh(high_metro_centroids, k = 4))
@@ -132,7 +134,7 @@ high_lead_clean %>%
   geom_sf(data = nb_knn_net)+
   theme_classic()+
   #geom_sf(data=areawater, fill="navy")+
-  labs(title = "Rook neighborhood structure for high lead centroids")+
+  labs(title = "KNN (4) neighborhood structure for high lead centroids")+
   theme(axis.line = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(), 
@@ -150,6 +152,7 @@ spdep::moran.test(high_lead_clean$lm_resid, Wb, alternative = "two.sided", rando
 library(spatialreg)
 # Convert Neighborhood Information to List (with weighting so that rows sum to 1)
 Ww <- nb2listw(knn, style = "W")
+Wb <- nb2listw(knn, style = "B")
 # Fit SAR Model - this run but need to figure out it is the correct way for a logistic model
 mod_sar <- spautolm(formula = percent~ propHomesBuiltPre1950 + medincomeE + PopE, data = high_lead_clean, listw = Ww, family = "SAR")
 summary(mod_sar)
@@ -159,8 +162,12 @@ high_lead_clean$mod_sar_knn <- resid(mod_sar)
 spdep::moran.test(high_lead_clean$mod_sar_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 
 # fit the car model
-mod_car <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
+mod_car <- spautolm(formula = percent~ medincomeE + propHomesBuiltPre1950 + PopE, data = high_lead_clean, listw = Ww, family = "CAR")
+summary(mod_car)
 BIC(mod_car)
+
+high_lead_clean$mod_car_knn <- resid(mod_car)
+spdep::moran.test(high_lead_clean$mod_car_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 ```
 
 

@@ -53,6 +53,17 @@ lead_census_clean %>%  st_drop_geometry() %>% ggplot(aes(y=tested/numChildtestin
   geom_point() 
 ```
 
+```{r}
+lead_census_clean %>% ggplot(aes(x=medageE, fill = factor(HighLead))) +
+  geom_density(alpha = 0.5) 
+
+lead_census_clean %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
+  geom_density(alpha = 0.35)+
+  facet_wrap(~TestingHigh)
+```
+Interesting that there is a population of people living in newer houses that aren't getting tested. 
+
+
 
 
 

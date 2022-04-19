@@ -198,7 +198,7 @@ logistic_attempt <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + PopE +
 saveRDS(logistic_attempt, "Logistic_model.rds")
 my_model <- readRDS("Logistic_model.rds")
 
-summary(logistic_attempt)
+summary(my_model)
 
  # Fit CAR Model - this run but need to figure out it is the correct way for a logistic model
 mod_car_knn <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
@@ -213,6 +213,9 @@ spdep::moran.test(high_lead_clean$sar_resid_knn, Wb, alternative = "two.sided", 
 high_lead_clean$car_resid_knn <- resid(mod_car_knn)
 spdep::moran.test(high_lead_clean$car_resid_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 ```
+
+
+
 
 
 

@@ -94,3 +94,12 @@ lead_census <- tracts %>%
 
 save(lead_census, file = "DataShapefiles/lead_spatial.RData")
 ```
+
+Create single variable that aggregates age of houshold. 
+
+```{r}
+lead_census_clean %>% 
+  st_drop_geometry() %>% 
+  mutate(CensusAgeE = propHomesBuiltPre1950 * runif(1, 72,122) + propHomesBuilt1950to1969*62.5 + propHomesBuilt1970to1989*42.5 + propHomesBuilt1990to2009*22.5 + propHomesBuilt2010tonow*6)
+```
+

@@ -98,8 +98,10 @@ save(lead_census, file = "DataShapefiles/lead_spatial.RData")
 Create single variable that aggregates age of houshold. 
 
 ```{r}
+year = 2022
 lead_census_clean <- lead_census_clean %>% 
-  st_drop_geometry() %>% 
-  mutate(CensusAgeE = propHomesBuiltPre1950 * runif(1, 72,122) + propHomesBuilt1950to1969*62.5 + propHomesBuilt1970to1989*42.5 + propHomesBuilt1990to2009*22.5 + propHomesBuilt2010tonow*6)
+  mutate(CensusAgeE = propHomesBuiltPre1950 * runif(1, 72,122) + propHomesBuilt1950to1969*62.5 + propHomesBuilt1970to1989*42.5 + propHomesBuilt1990to2009*22.5 + propHomesBuilt2010tonow*6) %>% 
+  mutate(CensusAgeE2 = propHomesBuiltPre1950*runif(1, year - 1900, year - 1950) + propHomesBuilt1950to1969*runif(1, year - 1969, year - 1950) + propHomesBuilt1970to1989*runif(1, year - 1989, year - 1970) + propHomesBuilt1990to2009*runif(1, year - 2009, year -1990) + propHomesBuilt2010tonow*runif(1, year - 2010, year))
+lead_census_clean$CensusAgeE2
 ```
 

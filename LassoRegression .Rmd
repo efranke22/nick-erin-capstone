@@ -1,0 +1,100 @@
+---
+title: "LassoAnalysis"
+author: "NicholasDi"
+date: '2022-04-20'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(MASS)
+library(tidyverse)
+library(GGally)
+library(tidymodels)
+library(readr)
+library(broom)
+library(ggplot2)
+library(stringr)
+library(janitor)
+```
+
+```{r}
+lasso_analysis_lead_census <- lead_census_clean %>% 
+  st_drop_geometry() %>% 
+  select(c(-GEOID,-STATEFP,-COUNTYFP,-TRACTCE,-NAME,-NAMELSAD,-MTFCC,-FUNCSTAT,-INTPTLAT,-INTPTLON,-primary_county,-per_eblls_label,-num_EBLLs_tract,-pct_ebll_county,-pct_ebll_cat_label,-tract_county_name)) %>% select(-HighLead)
+
+# lasso_analysis_lead_census <- lead_census_clean %>% 
+#   st_drop_geometry() %>% 
+#   select(c(-GEOID,-STATEFP,-COUNTYFP,-TRACTCE,-NAME,-NAMELSAD,-MTFCC,-FUNCSTAT,-INTPTLAT,-INTPTLON,-primary_county,-per_eblls_label,-num_EBLLs_tract,-pct_ebll_county,-pct_ebll_cat_label,-tract_county_name)) %>% 
+```
+
+```{r}
+tidymodels_prefer()
+set.seed(74)
+
+# Create CV folds
+data_cv10 <- vfold_cv(lasso_analysis_lead_census, v = 10)
+
+# Lasso Model Spec with tune
+lm_lasso_spec_tune <- 
+  linear_reg() %>%
+  set_args(mixture = 1, penalty = tune()) %>% ## mixture = 1 indicates Lasso
+  set_engine(engine = 'glmnet') %>% # we use the glmnet engine to do lasso
+  set_mode('regression') 
+
+full_rec <- recipe(percent ~ ., data = lasso_analysis_lead_census) %>% # we want to model y based on all the predictors (. means include every predictor)
+    step_nzv(all_predictors())  %>% # important standardization step for LASSO
+    step_dummy(all_nominal_predictors())  # creates indicator variables for categorical variables
+
+
+# Workflow (Recipe + Model)
+lasso_wf_tune <- workflow() %>% 
+  add_recipe(full_rec) %>% # using the same recipe created above
+  add_model(lm_lasso_spec_tune) 
+
+# Tune Model (trying a variety of values of Lambda penalty)
+penalty_grid <- grid_regular(
+  penalty(range = c(-10, 10)), #log10 transformed 
+  levels = 100)
+
+tune_output <- tune_grid( # new function for tuning hyperparameters
+  lasso_wf_tune, # workflow
+  resamples = data_cv10, # cv folds
+  metrics = metric_set(rmse, mae),
+  grid = penalty_grid # penalty grid defined above
+)
+metrics_output <- collect_metrics(tune_output) %>%
+  filter(.metric == 'mae') 
+
+best_penalty <- select_best(tune_output, metric = 'mae') # choose penalty value based on lowest mae
+best_penalty
+best_se_penalty <- select_by_one_std_err(tune_output, metric = 'mae', desc(penalty)) # choose penalty value based on the largest penalty within 1 SE of the lowest CV MAE
+best_se_penalty
+
+final_wf_se <- finalize_workflow(lasso_wf_tune, best_se_penalty) # incorporates penalty value to workflow
+final_fit_se <- fit(final_wf_se, data = lasso_analysis_lead_census)
+tidy(final_fit_se)
+
+glmnet_output <- final_fit_se %>% extract_fit_parsnip() %>% pluck('fit') # extracting the original glmnet output
+
+lambdas <- glmnet_output$lambda
+coefs_lambdas <- 
+  coefficients(glmnet_output, s = lambdas )  %>% 
+  as.matrix() %>%  
+  t() %>% 
+  as.data.frame() %>% 
+  mutate(lambda = lambdas ) %>% 
+  select(lambda, everything(), -`(Intercept)`) %>% 
+  pivot_longer(cols = -lambda, 
+               names_to = "term", 
+               values_to = "coef") %>%
+  mutate(var = map_chr(stringr::str_split(term,"_"),~.[1]))
+
+coefs_lambdas %>%
+  ggplot(aes(x = lambda, y = coef, group = term, color = var)) +
+  geom_line() +
+  geom_vline(xintercept = best_se_penalty %>% pull(penalty), linetype = 'dashed') + 
+  theme_classic() + 
+  theme(legend.position = "bottom", legend.text=element_text(size=8))
+```
+
+

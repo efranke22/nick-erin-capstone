@@ -112,4 +112,8 @@ lead_testing %>%
   summarize(mean(NumHouseE),mean(CensusAgeE), mean(medincomeE), mean(PopE), mean(medageE))
 ```
 
+```{r}
+lead_census_clean %>% st_drop_geometry() %>% select(walkE)
+```
+
 

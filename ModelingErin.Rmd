@@ -18,6 +18,9 @@ library(sf)
 library(ggtext)
 library(broom)
 library(spdep)
+library(tidymodels)
+library(probably)
+tidymodels_prefer()
 
 load("DataShapefiles/lead_spatial.RData")
 river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
@@ -25,26 +28,134 @@ roads <- st_read("DataShapefiles/tl_2019_27_prisecroads")
 roads_sub <- st_crop(roads,st_bbox(lead_census))
 ```
 
-# Logistic model for High Lead 
+# LASS0 logistic model for High Lead 
 
-Try out a logistic model for `HighLead`:
+```{r}
+# MODEL RECIPE AND TUNING
+set.seed(123)
+
+lasso_log_variables <- lead_census %>%
+  mutate(HighLead = as.factor(HighLead), 
+         HighLead = relevel(factor(HighLead), ref="0")) %>% 
+  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E) %>%
+  drop_na() %>% st_drop_geometry()
+
+data_cv10 <- vfold_cv(lasso_log_variables, v = 10)
+
+logistic_lasso_spec_tune <- logistic_reg() %>%
+    set_engine('glmnet') %>%
+    set_args(mixture = 1, penalty = tune()) %>%
+    set_mode('classification')
+
+logistic_rec <- recipe(HighLead~., data = lasso_log_variables) %>%
+    step_normalize(all_numeric_predictors()) %>% 
+    step_dummy(all_nominal_predictors())
+
+log_lasso_wf <- workflow() %>% 
+    add_recipe(logistic_rec) %>%
+    add_model(logistic_lasso_spec_tune) 
+
+penalty_grid <- grid_regular(
+  penalty(range = c(-10, 10)), 
+  levels = 100)
+
+tune_output <- tune_grid( 
+  log_lasso_wf, 
+  resamples = data_cv10, 
+  metrics = metric_set(roc_auc,accuracy),
+  control = control_resamples(save_pred = TRUE, event_level = 'second'),
+  grid = penalty_grid 
+)
+
+autoplot(tune_output) + theme_classic()
+
+# BEST SE PENALTY
+best_se_penalty <- select_by_one_std_err(tune_output, metric = 'roc_auc', desc(penalty)) 
+best_se_penalty
+
+final_fit_se <- finalize_workflow(log_lasso_wf, best_se_penalty) %>%
+    fit(data = lasso_log_variables)
+
+final_fit_se %>% tidy()
+
+# VARIABLE IMPORTANCE
+glmnet_output <- final_fit_se %>% extract_fit_engine()
+    
+bool_predictor_exclude <- glmnet_output$beta==0
+
+var_imp <- sapply(seq_len(nrow(bool_predictor_exclude)), function(row) {
+    this_coeff_path <- bool_predictor_exclude[row,]
+    ncol(bool_predictor_exclude) - which.min(this_coeff_path) + 1
+})
+
+var_imp_data <- tibble(
+    var_name = rownames(bool_predictor_exclude),
+    var_imp = var_imp
+)
+var_imp_data %>% arrange(desc(var_imp))
+```
+
+```{r}
+final_output <- final_fit_se %>% predict(new_data = lasso_log_variables, type='prob') %>% bind_cols(lasso_log_variables)
+
+final_output %>%
+    roc_curve(HighLead, .pred_1,event_level = 'second') %>%
+    autoplot()
+
+threshold_output <- final_output %>%
+    threshold_perf(truth = HighLead, estimate = .pred_0, thresholds = seq(0,1,by=.01)) 
+
+# J-index v. threshold for not_spam
+threshold_output %>%
+    filter(.metric == 'j_index') %>%
+    ggplot(aes(x = .threshold, y = .estimate)) +
+    geom_line() +
+    labs(y = 'J-index', x = 'threshold') +
+    theme_classic()
+
+threshold_output %>%
+    filter(.metric == 'j_index') %>%
+    arrange(desc(.estimate))
+
+log_metrics <- metric_set(accuracy,sens,yardstick::spec)
+
+final_output %>%
+    mutate(.pred_class = make_two_class_pred(.pred_0, levels(HighLead), threshold = .84)) %>%
+    log_metrics(truth = HighLead, estimate = .pred_class, event_level = 'second')
+```
+
+# Normal logistic regression with variables LASSO deemed important 
 ```{r}
 lead_census_clean <- lead_census %>%
-  filter(!is.na(medincomeE), !is.na(propHomesBuiltPre1950), !is.na(PopE))
-logistic_mod1 <- glm(HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, family = binomial())
+  filter(!is.na(medincomeE), !is.na(medageE), !is.na(propHomesBuiltPre1950), !is.na(tested))
+logistic_mod1 <- glm(HighLead~ medincomeE + medageE + propHomesBuiltPre1950 + tested, data = lead_census_clean, family = binomial())
 logistic_mod1 %>%
   coef() %>%
   exp()
 tidy(logistic_mod1)
-lead_census_clean$lm_resid <- resid(logistic_mod1)
 
+lead_census_clean$temp <- predict(logistic_mod1, type = "response")
+lead_census_clean$lm_resid <- resid(logistic_mod1)
+lead_census_clean <- lead_census_clean %>%
+  mutate(hard_pred = case_when(temp >= 0.16 ~ 1, 
+                               TRUE ~ 0))
+
+lead_census_clean <- lead_census_clean %>% 
+  mutate(WeAreRight = case_when(as.numeric(HighLead) == hard_pred ~ 1,
+                                TRUE ~ 0))
+
+lead_census_clean %>% st_drop_geometry() %>% 
+  group_by(WeAreRight) %>% count()
+
+# Model predictions
 lead_census_clean %>% 
   ggplot() +
-  geom_sf(aes(fill = lm_resid)) +
-  scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  geom_sf(aes(fill = as.factor(hard_pred)))+
+  #scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  scale_fill_manual(values = c("navy", "red"))+
   theme_classic()+
   #geom_sf(data=areawater, fill="navy")+
-  labs(title = "Logistic model residuals for lead levels in Twin Cities Metro", fill = "Residuals")+
+  labs(title = "Logistic model predictions for lead levels in Twin Cities Metro", fill = "High Lead Predicted")+
   theme(axis.line = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(), 

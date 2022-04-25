@@ -17,10 +17,11 @@ library(srvyr)
 library(sf)
 library(ggtext)
 library(broom)
-library(spdep)
+#library(spdep)
 library(tidymodels)
 library(probably)
 tidymodels_prefer()
+conflicted::conflict_prefer("spautolm", "spatialreg")
 
 load("DataShapefiles/lead_spatial.RData")
 river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
@@ -125,6 +126,7 @@ final_output %>%
 ```
 
 # Normal logistic regression with variables LASSO deemed important 
+
 ```{r}
 lead_census_clean <- lead_census %>%
   filter(!is.na(medincomeE), !is.na(medageE), !is.na(propHomesBuiltPre1950), !is.na(tested))
@@ -163,12 +165,51 @@ lead_census_clean %>%
         plot.title = element_text(family = "mono", size =11), 
         plot.title.position = "plot", 
         legend.text = element_text(family = "mono"))
+
+
+
+
+
+lead_census_clean %>% 
+  ggplot() +
+  geom_sf(aes(fill = as.factor(WeAreRight)),size =.1)+
+  #scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  scale_fill_manual(values = c( "red","grey"))+
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "Correct logistic model predictions for lead levels in Twin Cities Metro", fill = "Correctly Predicted High Lead")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+
+
+lead_census_clean %>% 
+  ggplot() +
+  geom_sf(aes(fill = lm_resid),size =.1)+
+  scale_fill_gradient2(mid = "white", high = "red", low = "blue",labels = scales::comma) +
+  #scale_fill_manual(values = c( "red","grey"))+
+  theme_classic()+
+  #geom_sf(data=areawater, fill="navy")+
+  labs(title = "Prediction Errors for lead levels in Twin Cities Metro", fill = "Residuals")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
 ```
 
 # Now adjusting for spatial correlation
 
 Create a rook neighborhood structure and get the centroids of each census tract.
+
 ```{r}
+
 rook <- poly2nb(lead_census_clean, queen = FALSE)
 metro_centroids <- st_centroid(st_geometry(lead_census_clean), of_largest_polygon = TRUE)
 nb_rook_net <- nb2lines(nb = rook, coords = metro_centroids, as_sf = TRUE)
@@ -176,7 +217,7 @@ lead_census_clean %>%
   ggplot()+
   geom_sf(data = lead_census_clean, color = "gray", fill="lightblue")+
   geom_sf(data=metro_centroids, lwd = 0.1)+
-  geom_sf(data = nb_rook_net)+
+  geom_sf(data = nb_rook_net,size=.2)+
   theme_classic()+
   #geom_sf(data=areawater, fill="navy")+
   labs(title = "Rook neighborhood structure for Twin Cities Metro Area")+
@@ -188,6 +229,7 @@ lead_census_clean %>%
 ```
 
 Strong evidence of spatial autocorrelation in logistic model given the very low p-value. 
+
 ```{r}
 Wb <- nb2listw(rook, style = "B") #style = 'B' gives binary weights
 spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
@@ -200,13 +242,28 @@ library(spatialreg)
 # Convert Neighborhood Information to List (with weighting so that rows sum to 1)
 Ww <- nb2listw(rook, style = "W")
 # Fit SAR Model - this run but need to figure out it is the correct way for a logistic model
-mod_sar <- spautolm(formula = HighLead~  medincomeE + medageE + propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "SAR")
+mod_sar <- spatialreg::spautolm(formula = HighLead ~  medincomeE + medageE + propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "SAR")
 summary(mod_sar)
 BIC(mod_sar)
 
-# fit the car model
-mod_car <- spautolm(formula = HighLead~  medincomeE + medageE + propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "CAR")
-BIC(mod_car)
+
+lead_census_clean %>%
+  mutate(pred = fitted(mod_sar)) %>%
+  ggplot(aes(x = pred,fill = factor(HighLead))) + 
+  geom_density(alpha=.2)
+
+lead_census_clean %>%
+  mutate(pred = fitted(mod_sar), resid = HighLead - pred) %>%
+  ggplot(aes(x = tested,y = resid)) + 
+  geom_point(alpha=.2)
+
+lead_census_clean %>%
+  mutate(pred = fitted(mod_sar), resid = HighLead - pred) %>%
+  ggplot(aes(x = propHomesBuiltPre1950,y = pred, color = factor(HighLead))) + 
+  geom_point(alpha=.2) + facet_wrap(~cut(medincomeE,3))
+#Consider an interaction with income and old homes. You may want to categorize income.
+
+
 ```
 
 # Model for lead levels of census tracts that have high levels 

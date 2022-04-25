@@ -111,9 +111,32 @@ lead_testing %>%
   group_by(HighLead, multipleTest) %>%
   summarize(mean(NumHouseE),mean(CensusAgeE), mean(medincomeE), mean(PopE), mean(medageE))
 ```
+```{r}
+ls(lead_census_clean)
+model <- glm(HighLead~ tested + medageE + CensusAgeE + MarrCoupleChldU3E + nurseryschoolE, data = lead_census_clean)
+summary(model)
+
+lead_census_clean
+predict(model)
+```
+
 
 ```{r}
-lead_census_clean %>% st_drop_geometry() %>% select(walkE)
+lead_census_clean %>% st_drop_geometry() %>% select(tested, CensusAgeE, HighLead,MarrCoupleChldU3E) %>%  cor()
 ```
+
+```{r}
+Lasso_Regression_data <- lead_census_clean %>% select(medageE,CensusAgeE, propHomesBuiltPre1950)
+```
+
+```{r}
+summary(lead_census_clean$medincomeE)
+lead_census_clean <- lead_census_clean %>% 
+  mutate(LowIncome = case_when(medincomeE <= 100000 ~ 1, 
+                               TRUE ~ 0))
+```
+
+
+
 
 

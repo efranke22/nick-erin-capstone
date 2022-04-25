@@ -209,7 +209,7 @@ lead_census_clean %>%
 Create a rook neighborhood structure and get the centroids of each census tract.
 
 ```{r}
-
+library(spdep)
 rook <- poly2nb(lead_census_clean, queen = FALSE)
 metro_centroids <- st_centroid(st_geometry(lead_census_clean), of_largest_polygon = TRUE)
 nb_rook_net <- nb2lines(nb = rook, coords = metro_centroids, as_sf = TRUE)
@@ -260,10 +260,18 @@ lead_census_clean %>%
 lead_census_clean %>%
   mutate(pred = fitted(mod_sar), resid = HighLead - pred) %>%
   ggplot(aes(x = propHomesBuiltPre1950,y = pred, color = factor(HighLead))) + 
-  geom_point(alpha=.2) + facet_wrap(~cut(medincomeE,3))
+  geom_point(alpha=.2) + facet_wrap(~IncomeCategory)
 #Consider an interaction with income and old homes. You may want to categorize income.
 
+lead_census_clean <- lead_census_clean %>% 
+  mutate(IncomeCategory = case_when(medincomeE > 0 & medincomeE < 60000 ~ "low",
+                                    medincomeE >= 60001 & medincomeE < 80000 ~ "medlow",
+                                    medincomeE >= 80001 & medincomeE < 100000 ~ "medhigh",
+                                    medincomeE >= 100001 ~ "high"))
 
+mod_sar_interaction <- spatialreg::spautolm(formula = HighLead ~ medageE + IncomeCategory*propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "SAR")
+summary(mod_sar_interaction)
+BIC(mod_sar_interaction)
 ```
 
 # Model for lead levels of census tracts that have high levels 

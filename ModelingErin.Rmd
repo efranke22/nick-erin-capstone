@@ -165,7 +165,9 @@ lead_census_clean %>%
         legend.text = element_text(family = "mono"))
 ```
 
-Rook neighborhood structure
+# Now adjusting for spatial correlation
+
+Create a rook neighborhood structure and get the centroids of each census tract.
 ```{r}
 rook <- poly2nb(lead_census_clean, queen = FALSE)
 metro_centroids <- st_centroid(st_geometry(lead_census_clean), of_largest_polygon = TRUE)
@@ -185,7 +187,7 @@ lead_census_clean %>%
         plot.title.position = "plot")
 ```
 
-Strong evidence of spatial autocorrelation in logistic model:
+Strong evidence of spatial autocorrelation in logistic model given the very low p-value. 
 ```{r}
 Wb <- nb2listw(rook, style = "B") #style = 'B' gives binary weights
 spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
@@ -193,27 +195,26 @@ spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", ran
 
 Thinking about logistic CAR and SAR models to account for spatial autocorrelation - need to figure out how to do logistic model (it runs but not sure it is thinking of 0 and 1 as factor)
 
-#Using ROOK
 ```{r}
 library(spatialreg)
 # Convert Neighborhood Information to List (with weighting so that rows sum to 1)
 Ww <- nb2listw(rook, style = "W")
 # Fit SAR Model - this run but need to figure out it is the correct way for a logistic model
-mod_sar <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "SAR")
+mod_sar <- spautolm(formula = HighLead~  medincomeE + medageE + propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "SAR")
 summary(mod_sar)
 BIC(mod_sar)
 
 # fit the car model
-mod_car <- spautolm(formula = HighLead~ medincomeE + propHomesBuiltPre1950 + PopE, data = lead_census_clean, listw = Ww, family = "CAR")
+mod_car <- spautolm(formula = HighLead~  medincomeE + medageE + propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "CAR")
 BIC(mod_car)
 ```
 
 # Model for lead levels of census tracts that have high levels 
 
 ```{r}
-high_lead_clean <- lead_census %>%
-  filter(!is.na(medincomeE), !is.na(propHomesBuiltPre1950), !is.na(PopE), HighLead == 1)
-highlead_mod1 <- lm(percent~ medincomeE + propHomesBuiltPre1950 + PopE, data = high_lead_clean)
+high_lead_clean <- lead_census_clean %>%
+  filter(HighLead == 1) 
+highlead_mod1 <- lm(percent~  medincomeE + medageE + propHomesBuiltPre1950 + tested, data = high_lead_clean)
 high_lead_clean$lm_resid <- resid(highlead_mod1)
 
 high_lead_clean %>% 
@@ -283,39 +284,14 @@ spdep::moran.test(high_lead_clean$mod_car_knn, Wb, alternative = "two.sided", ra
 
 
 
-##Nick Trying KNN
+##Nick Trying KNN with logistic model for HighLead
 
 Creating KNN Network 
 
 ```{r}
-knn <- knn2nb(knearneigh(metro_centroids, k = 4))
-nb_knn_net <- nb2lines(nb = knn, coords = metro_centroids, as_sf = TRUE)
-
 lead_census_clean$X <- st_coordinates(metro_centroids)[,1]
 lead_census_clean$Y <- st_coordinates(metro_centroids)[,2]
 #Will have X and Y cord for fit me
-
-
-lead_census_clean %>%
-  ggplot()+
-  geom_sf(data = lead_census_clean, color = "gray", fill="lightblue")+
-  geom_sf(data=metro_centroids, lwd = 0.1)+
-  geom_sf(data = nb_knn_net)+
-  theme_classic()+
-  #geom_sf(data=areawater, fill="navy")+
-  labs(title = "KNN neighborhood structure for Twin Cities Metro Area")+
-  theme(axis.line = element_blank(), 
-        axis.text = element_blank(), 
-        axis.ticks = element_blank(), 
-        plot.title = element_text(family = "mono", size =11), 
-        plot.title.position = "plot")
-```
-
-```{r}
-Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
-spdep::moran.test(lead_census_clean$lm_resid, Wb, alternative = "two.sided", randomisation = TRUE)
-
-#Error Here Note Sure
 ```
 
 Modeling SAR Under KNN 

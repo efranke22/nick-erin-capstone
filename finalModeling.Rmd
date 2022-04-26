@@ -210,9 +210,9 @@ final_lasso_preds$Y <- st_coordinates(centroids)[,2]
 Model One: uses variables from LASSO logistic model with no interactions
 ```{r}
 library(spaMM)
-logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
+#logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
 
-saveRDS(logistic_mod1, "logistic_mod1.rds")
+#saveRDS(logistic_mod1, "logistic_mod1.rds")
 mod1 <- readRDS("logistic_mod1.rds")
 summary(mod1)
 ```
@@ -224,9 +224,9 @@ final_lasso_preds <- final_lasso_preds %>%
                                     medincomeE >= 60001 & medincomeE < 80000 ~ "medlow",
                                     medincomeE >= 80001 & medincomeE < 100000 ~ "medhigh",
                                     medincomeE >= 100001 ~ "high"))
-logistic_mod2 <- fitme(HighLead ~ IncomeCategory*propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
+#logistic_mod2 <- fitme(HighLead ~ IncomeCategory*propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
 
-saveRDS(logistic_mod2, "logistic_mod2.rds")
+#saveRDS(logistic_mod2, "logistic_mod2.rds")
 mod2 <- readRDS("logistic_mod2.rds")
 summary(mod2)
 ```
@@ -305,6 +305,8 @@ lasso_mod_out %>%
   theme_classic()
 ```
 
+## Moran's I test for percent 
+
 Look for evidence of spatial correlation in residuals
 ```{r}
 lasso_results <- lead_census %>%
@@ -316,3 +318,97 @@ Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
 spdep::moran.test(lasso_results$resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
 ```
 
+Given spatial correlation in residuals, create a KNN neighborhood structure
+```{r}
+high_metro_centroids <- st_centroid(st_geometry(lasso_results), of_largest_polygon = TRUE)
+knn <- knn2nb(knearneigh(high_metro_centroids, k = 4))
+nb_knn_net <- nb2lines(nb = knn, coords = high_metro_centroids, as_sf = TRUE)
+
+lasso_results %>%
+  ggplot()+
+  geom_sf(data = lasso_results, color = "gray", fill="lightblue")+
+  geom_sf(data=high_metro_centroids, lwd = 0.1)+
+  geom_sf(data = nb_knn_net)+
+  theme_classic()+
+  labs(title = "KNN (4) neighborhood structure for high lead centroids")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+```
+
+## SAR and CAR models using variables from LASSO
+
+Fit the SAR model for percent using the variables from the LASS0. It appears that the residuals are independent as the Moran's I test gives a p-value of 0.8246.  
+```{r}
+library(spatialreg)
+
+Ww <- nb2listw(knn, style = "W")
+Wb <- nb2listw(knn, style = "B")
+
+mod_sar <- spautolm(formula = percent~ PopE + propHomesBuiltPre1950 + SSIRecpE + propHomesBuilt1950to1969, data = lasso_results, listw = Ww, family = "SAR")
+summary(mod_sar)
+BIC(mod_sar)
+
+lasso_results$mod_sar_knn <- resid(mod_sar)
+spdep::moran.test(lasso_results$mod_sar_knn, Wb, alternative = "two.sided", randomisation = TRUE)
+```
+
+Fit the CAR model for percent using the variables from the LASS0. The p-value for the Moran's I test for the car model is 0.2527. Additionally, the BIC is more negative for the SAR model (-562.28 for SAR and -554.87 for CAR) and so it seems that the SAR model is the better choice. 
+```{r}
+mod_car <- spautolm(formula = percent~ PopE + propHomesBuiltPre1950 + SSIRecpE + propHomesBuilt1950to1969, data = lasso_results, listw = Ww, family = "CAR")
+summary(mod_car)
+BIC(mod_car)
+
+lasso_results$mod_car_knn <- resid(mod_car)
+spdep::moran.test(lasso_results$mod_car_knn, Wb, alternative = "two.sided", randomisation = TRUE)
+```
+
+SAR Model 1 Evaluation. Create maps of predicted and actual percent and a map of the residuals. 
+```{r}
+lasso_results$sar_pred <- fitted(mod_sar)
+
+lasso_results %>%
+    ggplot() + 
+  geom_sf(aes(fill = sar_pred)) + 
+  labs(title = "Percent of Children with High Lead Blood Levels: SAR Predictions", fill = "") + 
+  scale_fill_gradient(low = "white", high = "darkred", limits = c(0,0.12)) + theme_classic()+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+
+lasso_results %>%
+    ggplot() + 
+  geom_sf(aes(fill = percent)) + 
+  labs(title = "Percent of Children with High Lead Blood Levels: Actual", fill = "") + 
+  scale_fill_gradient(low = "white", high = "darkred") + 
+  theme_classic()+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+
+# Model Residuals 
+lasso_results %>%
+    ggplot() + 
+  geom_sf(aes(fill = mod_car_knn)) + 
+  labs(title = "Residuals from SAR Model", fill = "Residuals") + 
+  scale_fill_gradient2(mid = "white", high = "darkred", low = "navy") +
+  theme_classic()+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+```
+
+Find the RMSE of the SAR model: 0.01468
+```{r}
+sqrt(mean(lasso_results$mod_car_knn^2))
+```
+
+## Potentially another SAR model with different variables here

@@ -1,0 +1,316 @@
+---
+title: "Final lead models"
+author: "Erin Franke and Nicholas Di"
+date: "4/26/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(survey)
+library(srvyr)
+library(sf)
+library(ggtext)
+library(broom)
+#library(spdep)
+library(tidymodels)
+library(probably)
+tidymodels_prefer()
+conflicted::conflict_prefer("spautolm", "spatialreg")
+
+load("DataShapefiles/lead_spatial.RData")
+river_lakes <- st_read("DataShapefiles/shp_water_lakes_rivers")
+river_lakes_big <- river_lakes %>%
+  filter(AREA_ACRES >= 500)
+roads <- st_read("DataShapefiles/tl_2019_27_prisecroads")
+roads_sub <- st_crop(roads,st_bbox(lead_census))
+```
+
+# Initial Model: LASS0 logistic model for High Lead 
+
+```{r}
+# MODEL RECIPE AND TUNING
+set.seed(123)
+
+lasso_log_variables <- lead_census %>%
+  mutate(HighLead = as.factor(HighLead), 
+         HighLead = relevel(factor(HighLead), ref="0"), 
+         testRatio = tested/numChildtestingage) %>% 
+  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E, testRatio, GEOID) %>%
+  drop_na() %>% st_drop_geometry()
+
+data_cv10 <- vfold_cv(lasso_log_variables, v = 10)
+
+logistic_lasso_spec_tune <- logistic_reg() %>%
+    set_engine('glmnet') %>%
+    set_args(mixture = 1, penalty = tune()) %>%
+    set_mode('classification')
+
+logistic_rec <- recipe(HighLead~medageE + medincomeE + NumHouseE + PopE + propFamilyHouseholds + propHomesBuiltPre1950 + SSIRecpE + CensusAgeE + tested + MarrCoupleChldU3E +testRatio, data = lasso_log_variables) %>%
+    step_normalize(all_numeric_predictors()) %>% 
+    step_dummy(all_nominal_predictors())
+
+log_lasso_wf <- workflow() %>% 
+    add_recipe(logistic_rec) %>%
+    add_model(logistic_lasso_spec_tune) 
+
+penalty_grid <- grid_regular(
+  penalty(range = c(-10, 10)), 
+  levels = 100)
+
+tune_output <- tune_grid( 
+  log_lasso_wf, 
+  resamples = data_cv10, 
+  metrics = metric_set(roc_auc,accuracy),
+  control = control_resamples(save_pred = TRUE, event_level = 'second'),
+  grid = penalty_grid 
+)
+
+autoplot(tune_output) + theme_classic()
+
+# BEST SE PENALTY
+best_se_penalty <- select_by_one_std_err(tune_output, metric = 'roc_auc', desc(penalty)) 
+best_se_penalty
+
+final_fit_se <- finalize_workflow(log_lasso_wf, best_se_penalty) %>%
+    fit(data = lasso_log_variables)
+
+# Variables not driven to 0: medageE, medincomeE, propHomesBuiltPre1950, tested, testRatio
+final_fit_se %>% tidy()
+
+# VARIABLE IMPORTANCE
+glmnet_output <- final_fit_se %>% extract_fit_engine()
+    
+bool_predictor_exclude <- glmnet_output$beta==0
+
+var_imp <- sapply(seq_len(nrow(bool_predictor_exclude)), function(row) {
+    this_coeff_path <- bool_predictor_exclude[row,]
+    ncol(bool_predictor_exclude) - which.min(this_coeff_path) + 1
+})
+
+var_imp_data <- tibble(
+    var_name = rownames(bool_predictor_exclude),
+    var_imp = var_imp
+)
+var_imp_data %>% arrange(desc(var_imp))
+```
+
+```{r}
+final_output <- final_fit_se %>% predict(new_data = lasso_log_variables, type='prob') %>% bind_cols(lasso_log_variables)
+
+final_output %>%
+    roc_curve(HighLead, .pred_1,event_level = 'second') %>%
+    autoplot()
+
+threshold_output <- final_output %>%
+    threshold_perf(truth = HighLead, estimate = .pred_0, thresholds = seq(0,1,by=.01)) 
+
+threshold_output %>%
+    filter(.metric == 'j_index') %>%
+    ggplot(aes(x = .threshold, y = .estimate)) +
+    geom_line() +
+    labs(y = 'J-index', x = 'threshold') +
+    theme_classic()
+
+#Chose a threshold of 0.85 to predict HighLead
+threshold_output %>%
+    filter(.metric == 'j_index') %>%
+    arrange(desc(.estimate))
+
+log_metrics <- metric_set(accuracy,sens,yardstick::spec)
+
+# Model gives an accuracy of 79.69% with a sensitivity of 87.7% and specificity of 77.05%
+final_output %>%
+    mutate(.pred_class = make_two_class_pred(.pred_0, levels(HighLead), threshold = .85)) %>%
+    log_metrics(truth = HighLead, estimate = .pred_class, event_level = 'second')
+
+# Final predictions 
+final_lasso_preds <- lead_census %>%
+  select(GEOID) %>%
+  right_join(final_output, by = "GEOID") %>%
+  mutate(.pred_class = make_two_class_pred(.pred_0, levels(HighLead), threshold = .85))
+```
+
+Visualize and compare LASSO model predictions and actual result
+```{r}
+final_lasso_preds %>%
+  ggplot() +
+  geom_sf(aes(fill = as.factor(.pred_class)))+
+  scale_fill_manual(values = c("navy", "red"))+
+  theme_classic()+
+  geom_sf(data=river_lakes_big, fill="lightblue")+
+  labs(title = "Logistic model predictions for lead levels in Twin Cities Metro", fill = "High Lead Predicted")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+
+final_lasso_preds %>%
+  ggplot() +
+  geom_sf(aes(fill = as.factor(HighLead)))+
+  scale_fill_manual(values = c("navy", "red"))+
+  theme_classic()+
+  geom_sf(data=river_lakes_big, fill="lightblue")+
+  labs(title = "Actual high lead census tracts in Twin Cities Metro", fill = "High Lead")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+```
+
+# Check LASSO logistic model for spatial correlation using a KNN neighborhood structure 
+
+Create the KNN neighborhood structure and visualize: 
+```{r}
+library(spdep)
+centroids <- st_centroid(st_geometry(final_lasso_preds), of_largest_polygon = TRUE)
+knn <- knn2nb(knearneigh(centroids, k = 4))
+nb_knn_net <- nb2lines(nb = knn, coords = centroids, as_sf = TRUE)
+
+final_lasso_preds %>%
+  ggplot()+
+  geom_sf(data = final_lasso_preds, color = "gray", fill="lightblue")+
+  geom_sf(data=centroids, lwd = 0.1)+
+  geom_sf(data = nb_knn_net)+
+  theme_classic()+
+  labs(title = "KNN (4) neighborhood structure Twin Cities Metro Area")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+```
+
+Use Moran's I test to check for spatial autocorrelation. There is strong evidence for spatial autocorrelation given the small p-value.
+```{r}
+Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
+spdep::moran.test(final_lasso_preds$??, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
+```
+
+# Create logistic model that accounts for spatial correlation
+
+Get X and Y coordinates for centroids 
+```{r}
+final_lasso_preds$X <- st_coordinates(centroids)[,1]
+final_lasso_preds$Y <- st_coordinates(centroids)[,2]
+```
+
+Model One: uses variables from LASSO logistic model with no interactions
+```{r}
+logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
+
+saveRDS(logistic_mod1, "logistic_mod1.rds")
+mod1 <- readRDS("logistic_mod1.rds")
+summary(mod1)
+```
+
+Model Two: includes an interaction between income level and home age
+```{r}
+final_lasso_preds <- final_lasso_preds %>%
+  mutate(IncomeCategory = case_when(medincomeE > 0 & medincomeE < 60000 ~ "low",
+                                    medincomeE >= 60001 & medincomeE < 80000 ~ "medlow",
+                                    medincomeE >= 80001 & medincomeE < 100000 ~ "medhigh",
+                                    medincomeE >= 100001 ~ "high"))
+logistic_mod2 <- fitme(HighLead ~ IncomeCategory*propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
+
+saveRDS(logistic_mod2, "logistic_mod2.rds")
+mod2 <- readRDS("logistic_mod2.rds")
+summary(mod2)
+```
+
+# Create model for percent (proportion of children with high lead levels)
+
+This model will only use census tracts where the proportion of children with high lead levels is greater than 1%. 
+
+## First, use LASSO to determine predictors for this 
+```{r}
+lasso_percent_variables <- lead_census %>%
+  mutate(HighLead = as.factor(HighLead), 
+         HighLead = relevel(factor(HighLead), ref="0"), 
+         testRatio = tested/numChildtestingage) %>% 
+  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E, testRatio, GEOID, propHomesBuilt1950to1969, propHomesBuilt1970to1989, propHomesBuilt1990to2009, propHomesBuilt2010tonow, percent) %>%
+  filter(HighLead == "1") %>%
+  drop_na() %>% st_drop_geometry()
+
+set.seed(123)
+percent_cv10 <- vfold_cv(lasso_percent_variables, v = 10)
+
+lm_lasso_spec_tune <- 
+  linear_reg() %>%
+  set_args(mixture = 1, penalty = tune()) %>% 
+  set_engine(engine = 'glmnet') %>%
+  set_mode('regression') 
+
+percent_rec <- recipe(percent ~., data = lasso_percent_variables) %>%
+  update_role(GEOID, new_role = "ID") %>% # we don't want to use ID as predictor
+  step_novel(all_nominal_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors())  # important step for LASSO
+
+lasso_wf_percent <- workflow() %>% 
+  add_recipe(percent_rec) %>%
+  add_model(lm_lasso_spec_tune) 
+
+penalty_grid <- grid_regular(
+  penalty(range = c(-5, 3)), #log10 transformed 10^-5 to 10^3
+  levels = 50)
+
+tune_res <- tune_grid( # new function for tuning hyperparameters
+  lasso_wf_percent, # workflow
+  resamples = percent_cv10, # folds
+  metrics = metric_set(rmse),
+  grid = penalty_grid # penalty grid
+)
+
+autoplot(tune_res)
+
+collect_metrics(tune_res) %>%
+  filter(.metric == 'rmse') %>%
+  select(penalty, rmse = mean) 
+
+best_penalty <- select_best(tune_res, metric = 'rmse', desc(penalty)) 
+percent_final_wk <- finalize_workflow(lasso_wf_percent, best_penalty) # incorporates penalty value to workflow
+percent_final_fit <- fit(percent_final_wk, data = lasso_percent_variables)
+tidy(percent_final_fit)
+
+percent_final_fit %>% predict(new_data = lasso_percent_variables)
+
+# we can predict the percent of high lead children on average within 1.5% 
+tune_res %>% collect_metrics() %>% filter(penalty == (best_penalty %>% pull(penalty)))
+
+lasso_mod_out <- percent_final_fit %>%
+    predict(new_data = lasso_percent_variables) %>%
+    bind_cols(lasso_percent_variables) %>%
+    mutate(resid = percent - .pred)
+
+lasso_mod_out %>% 
+  ggplot(aes(x = .pred, y = resid)) + 
+  geom_point() +
+  geom_smooth(se = FALSE) + 
+  geom_hline(yintercept = 0) + 
+  theme_classic()
+```
+
+Look for evidence of spatial correlation in residuals
+```{r}
+lasso_results <- lead_census %>%
+  filter(HighLead == 1) %>%
+  select(GEOID) %>%
+  right_join(lasso_mod_out, by = "GEOID")
+
+Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
+spdep::moran.test(lasso_results$resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
+```
+

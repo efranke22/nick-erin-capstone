@@ -1,0 +1,12 @@
+---
+title: "A Spatial Analysis of Elevated Blood Lead Levels in the Twin Cities Metropolitan Region"
+author: "Erin Franke and Nicholas Di"
+date: "May 6, 2022"
+output: github_document
+bibliography: Library.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+

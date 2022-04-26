@@ -208,6 +208,7 @@ final_lasso_preds$Y <- st_coordinates(centroids)[,2]
 
 Model One: uses variables from LASSO logistic model with no interactions
 ```{r}
+library(spaMM)
 logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
 
 saveRDS(logistic_mod1, "logistic_mod1.rds")

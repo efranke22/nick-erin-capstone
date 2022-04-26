@@ -195,7 +195,8 @@ final_lasso_preds %>%
 Use Moran's I test to check for spatial autocorrelation. There is strong evidence for spatial autocorrelation given the small p-value.
 ```{r}
 Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
-spdep::moran.test(final_lasso_preds$??, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
+final_lasso_preds$resid <- as.numeric(as.character(final_lasso_preds$HighLead)) - final_lasso_preds$.pred_1
+spdep::moran.test(final_lasso_preds$resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
 ```
 
 # Create logistic model that accounts for spatial correlation

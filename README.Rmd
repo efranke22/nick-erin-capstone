@@ -76,3 +76,5 @@ The reason why this research question is important is because understanding what
 To help us understand what is correlated with a tract being "high lead", we will need more than just the information provided by the MDH of tract lead levels. Using the **tidycensus** [@tidycensus] package in R, we can access a plethora of information on each census tract including its estimated mean age, mean income, population, proportion of family households, home age, and so much more. We begin by exploring the relationship between many of these variables and testing as well as EBLLs.
 
 # Exploratory Data Analysis 
+
+# References 

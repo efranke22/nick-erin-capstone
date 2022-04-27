@@ -77,4 +77,26 @@ To help us understand what is correlated with a tract being "high lead", we will
 
 # Exploratory Data Analysis 
 
+## Estimated Home Age and EBLLs
+
+One of the first variables we decided to explore was estimated home age. Using the tidycensus package, we were able to access the number of residences in each census tract built prior to 1950, between 1950-1959, 1960-1969, etc. We made these variables proportions by dividing the number of homes built in each time period by the total number of homes in the census tract. Most revealing was the proportion of homes built prior to 1950 - as seen in the map below, the Minneapolis-Saint Paul city limits are largely composed of older homes while the tracts on the outskirts of the metropolitan are very much newer homes.
+
+```{r}
+lead_census %>%
+  ggplot()+
+  geom_sf(aes(fill = propHomesBuiltPre1950), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Proportion of homes built before 1950 by Twin Cities census tract", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+```
+
+Given this visualization and our knowledge of history, we have a strong hunch that home age plays a strong role in lead exposure in children. But it can't be the only factor - scrolling back up to our map of identifying "high lead" census tracts in red, it is clear there are some "high lead" tracts outside MSP city limits that are comprised of newer homes. For example, 
+
+## Who is getting tested?
+
 # References 

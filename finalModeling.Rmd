@@ -210,25 +210,116 @@ final_lasso_preds$Y <- st_coordinates(centroids)[,2]
 Model One: uses variables from LASSO logistic model with no interactions
 ```{r}
 library(spaMM)
+mod1data <- final_lasso_preds %>% 
+  mutate(medincomeE = medincomeE/1000,
+         propHomesBuiltPre1950 = propHomesBuiltPre1950*100)
+
+# logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=mod1data,control.HLfit = list(algebra='decorr'))
 #logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
 
-#saveRDS(logistic_mod1, "logistic_mod1.rds")
+saveRDS(logistic_mod1, "logistic_mod1_edited.rds")
 mod1 <- readRDS("logistic_mod1.rds")
 summary(mod1)
+mod1_prediction <- final_lasso_preds %>% 
+  mutate(logodds = predict(mod1, data = final_lasso_preds),
+         odds = exp(logodds),
+         probability = odds/(1+odds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.7~1,
+                                  probability < 0.7~0))
+
+mod1_prediction %>%
+  ggplot() +
+  geom_sf(aes(fill = as.factor(predHighLead)))+
+  scale_fill_manual(values = c("navy", "red"))+
+  theme_classic()+
+  geom_sf(data=river_lakes_big, fill="lightblue")+
+  labs(title = "Fixed Logistic model predictions for lead levels in Twin Cities Metro", fill = "High Lead Predicted")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+
+mod1_prediction %>%
+  ggplot() +
+  geom_sf(aes(fill = as.factor(HighLead)))+
+  scale_fill_manual(values = c("navy", "red"))+
+  theme_classic()+
+  geom_sf(data=river_lakes_big, fill="lightblue")+
+  labs(title = "Actual high lead census tracts in Twin Cities Metro", fill = "High Lead")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
 ```
+
+##TempNotes
+Coefficents are same, just as any other model. One unit increase in  medincome. Turning it into something meaningful. prop and tested. the estimate is large enough relative to the standard errors they are far from zero. While others are not too far from zero. will have to do e^17.41 to get odds ratios. multiply prophomespuiltpre1950 by 100 so more interpretable. divide mediam income by 1000. 
+
+correlation parameters: they are rho -> range parameter. how far 2 census tracts are such that they're still corelated. units that are not meaningful. Because i have matern corelation coeffic, does assume isotropic. directional pattern won't capture it. You have log liklihood. can compare it with a logistic regression. should fit better. Accountig through correlation through the random effect. As long as rho is not zero, there is correlation that it is modeling and taking into account. 
+##TempNotes
 
 Model Two: includes an interaction between income level and home age
 ```{r}
-final_lasso_preds <- final_lasso_preds %>%
+mod2data <- final_lasso_preds%>%
   mutate(IncomeCategory = case_when(medincomeE > 0 & medincomeE < 60000 ~ "low",
                                     medincomeE >= 60001 & medincomeE < 80000 ~ "medlow",
                                     medincomeE >= 80001 & medincomeE < 100000 ~ "medhigh",
-                                    medincomeE >= 100001 ~ "high"))
-#logistic_mod2 <- fitme(HighLead ~ IncomeCategory*propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
+                                    medincomeE >= 100001 ~ "high"))  %>% 
+  mutate(medincomeE = medincomeE/1000,
+         propHomesBuiltPre1950 = propHomesBuiltPre1950*100) 
 
-#saveRDS(logistic_mod2, "logistic_mod2.rds")
-mod2 <- readRDS("logistic_mod2.rds")
+mod2data <- mod2data %>% na.omit()
+
+
+# logistic_mod2 <- fitme(HighLead ~ IncomeCategory*propHomesBuiltPre1950 + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=mod2data,control.HLfit = list(algebra='decorr'))
+
+saveRDS(logistic_mod2, "logistic_mod2_edited.rds")
+mod2 <- readRDS("logistic_mod2_edited.rds")
 summary(mod2)
+
+#Getting Error here not sure why
+mod2_prediction <- mod2data %>% 
+  mutate(logodds = predict(mod2, data = mod2data),
+         odds = exp(logodds),
+         probability = odds/(1+odds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.7~1,
+                                  probability < 0.7~0))
+
+mod2_prediction %>%
+  ggplot() +
+  geom_sf(aes(fill = as.factor(predHighLead)))+
+  scale_fill_manual(values = c("navy", "red"))+
+  theme_classic()+
+  geom_sf(data=river_lakes_big, fill="lightblue")+
+  labs(title = "2nd Fixed Logistic model predictions for lead levels in Twin Cities Metro", fill = "High Lead Predicted")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+
+mod2_prediction %>%
+  ggplot() +
+  geom_sf(aes(fill = as.factor(HighLead)))+
+  scale_fill_manual(values = c("navy", "red"))+
+  theme_classic()+
+  geom_sf(data=river_lakes_big, fill="lightblue")+
+  labs(title = "Actual high lead census tracts in Twin Cities Metro", fill = "High Lead")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        legend.title = element_text(family = "mono", size = 9),
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
 ```
 
 # Create model for percent (proportion of children with high lead levels)

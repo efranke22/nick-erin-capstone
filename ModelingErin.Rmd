@@ -269,6 +269,8 @@ lead_census_clean <- lead_census_clean %>%
                                     medincomeE >= 80001 & medincomeE < 100000 ~ "medhigh",
                                     medincomeE >= 100001 ~ "high"))
 
+#Use Ratio for Tested
+
 mod_sar_interaction <- spatialreg::spautolm(formula = HighLead ~ medageE + IncomeCategory*propHomesBuiltPre1950 + tested, data = lead_census_clean, listw = Ww, family = "SAR")
 summary(mod_sar_interaction)
 BIC(mod_sar_interaction)

@@ -25,10 +25,10 @@ May 6, 2022
 # Introduction
 
 When raising a child, parents go through lots of stress to keep their
-children safe and healthy. From using carseats to getting children
+children safe and healthy. From using car seats to getting children
 vaccinated to working on speech and mobility development and beyond,
-parents have a lot on their plate. But one thing that may be overlooked
-in providing safe and healthy environment for a child is lead. Lead in
+there is a lot to think about. But one thing that may be overlooked in
+providing safe and healthy environment for a child is lead. Lead in
 paint, soil, air, or water is invisible to the naked eye and has no
 smell (“Prevent Children’s Exposure to Lead” 2021). However, children
 can be exposed to lead in a variety of manners, including swallowing
@@ -118,6 +118,169 @@ EBLLs.
 
 # Exploratory Data Analysis
 
+## Estimated Home Age and EBLLs
+
+One of the first variables we decided to explore was estimated home age.
+Using the tidycensus package, we were able to access the number of
+residences in each census tract built prior to 1950, between 1950-1959,
+1960-1969, etc. We made these variables proportions by dividing the
+number of homes built in each time period by the total number of homes
+in the census tract. Most revealing was the proportion of homes built
+prior to 1950 - as seen in the map below, the Minneapolis-Saint Paul
+city limits are largely composed of these older homes while the tracts
+on the outskirts of the city have few very homes built before 1950.
+
+![](README_files/figure-gfm/unnamed-chunk-4-1.png)<!-- -->
+
+Given this visualization and our knowledge of history, it is clear that
+home age likely plays a strong role in lead exposure in children. But it
+can’t be the only factor. In the map below, we again identify tracts
+with at least 1% of tests registering with elevated blood lead levels.
+These tracts are colored red and pink, though *in the pink tracts less
+than 25% of homes were built before 1950*. We see these pink tracts
+generally are located outside the MSP city limits in more recently
+developed suburban areas.
+
+![](README_files/figure-gfm/unnamed-chunk-5-1.png)<!-- -->
+
+Comparing these pink tracts we have denoted as “high lead” tracts that
+contain less than 25% of homes built before 1950 to tracts we have
+denoted as having safe lead levels, there are a few things to notice.
+Our first thought was that perhaps these pink tracts were still
+significantly older than the safe lead level tracks and were just built
+largely in the 1960s and 70s. Lead-based paint and lead-contaminated
+dust are the most common sources of lead poisoning, and paint containing
+lead was not banned in the United States until 1978 (“Common Sources of
+Lead Poisoning,” n.d.). Therefore, any home built prior to 1978 could
+serve as an exposure threat to children. It ended up that on average
+56.1% percent of the homes in the pink tracts were built before 1979
+compared to 54.8% of homes in the safe lead tracts. With such a small
+difference, there has to be something else correlated with children
+testing for EBLLs in particular tracts. Looking into other variables, we
+found the pink high lead tracts have a slightly higher population
+density at about 2 people/1000 m<sup>2</sup> than the safe lead tracts
+at 1.4 people/1000 m<sup>2</sup>. Additionally, these pink high lead
+tracts have an estimated median income of $63,431, whereas the safe lead
+tracts have an estimated median income of almost $87,661. Lead exposure
+can also come through occupation (people exposed to lead through jobs in
+fields such as auto repair, mining, pipe fitting, battery manufacturing,
+painting, and construction can bring it home on their clothing), soil,
+pottery, herbal and folk remedies, the ingredient tamarind in candy, and
+cosmetics (“Lead Poisoning” 2022). Given the significant difference in
+median income between the pink high lead tracts and the safe lead
+tracts, it is possible that residents from the pink high lead tracts
+live a different lifestyle than residents in the safe lead tracts that
+causes them to be exposed to lead at a higher rate. While it’s clear we
+can’t fully solve this mystery given the data we have, the
+identification of these somewhat unexpected “high lead” tracts is
+crucial as it can help direct resources and information toward these
+tracts in order to reduce lead exposure.
+
+## Who is getting tested?
+
+# Modeling the percent of children by census tract with EBLLs
+
+Thus far, we have developed a model to predict whether or not a census
+tract will have at least 1% of tests return with an indication of EBLLs.
+But its important to acknowledge that not all census tracts that we have
+denoted as “high lead” have the same proportion of tests indicating
+EBLLs. For the 106 “high lead” tracts, the distribution of the
+proportion of tests indicating EBLLs is shown below.
+
+![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
+
+In order to better understand this distribution and what is correlated
+with certain tracts having a higher percentage of tests with EBLLs than
+others, we will build a model for this percentage using solely the 106
+“high lead” tracts. Similar to our logistic model building process to
+predict whether or not a tract is “high lead,” we will begin with a
+LASSO regression model. Variables that remain in the model after the
+shrinkage process can be thought of as most important at helping us
+identify why certain tracts have a higher percentage of tests with EBLLs
+than others.
+
+Using 10-fold cross validation on our 106 census tracts, the LASSO
+modeling process identified tract population, the proportion of homes
+built between 1950 and 1969, the proportion of homes built before 1950,
+and the estimated mean receipt of supplemental security income (SSI) for
+households with children under 18 as the most important predictors of
+percentage of tests with EBLLs. Interestingly, population and amount of
+SSI both showed a negative relationship with percentage of tests with
+EBLLs, meaning more highly populated tracts tend to have a lower
+proportion of tests with EBLLs holding other variables constant.
+Additionally, tracts receiving more SSI tend to have a lower proportion
+of tests with EBLLs holding other variables constant. These
+relationships are shown in the plots below.
+
+<img src="README_files/figure-gfm/unnamed-chunk-9-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-9-2.png" width="45%" />
+
+The reasoning for this phenomena could be that such higher populated and
+impoverished tracts are viewed “higher risk” for lead exposure and have
+received greater resources to prevent it thus far.
+
+Now that we have our model, we can evaluate it. Looking first at our
+prediction errors, the model appears relatively solid with a mean
+estimated error of 1.5%. While this is good news, our model must also
+have residuals that do not have spatial autocorrelation. Spatial
+autocorrelation means residuals in one census tract are related to the
+residuals in the census tracts around it, which is problematic because
+we violate the assumption of independence of residuals and jeopardize
+the validity of hypothesis tests. We can test for spatial
+autocorrelation with something called the Moran’s I test. In order to
+run the Moran’s I test, we must decide in what way we want to define
+census tracts as “close.” In other words, we must define a
+**neighborhood structure**. There are many options when defining a
+neighborhood structure. We can define tracts as neighbors if they touch
+at all, even just at a on point such as a corner. This is called the
+Queen neighborhood structure. Another option is the Rook neighborhood
+structure, which defines tracts as neighbors if they share an edge (more
+than just a corner). Neighbors can also be defined using distance. The
+KNN method calculates the distance between the centers (or centroids) of
+each census tract, and then defines a neighborhood based on K nearest
+tracts, distanced based on the centers (Heggeseth 2022). Because we are
+only looking at census tracts with high lead levels, some tracts do not
+touch and thus we will use the KNN structure with 4 neighbors. 4
+neighbors gives a nice balance between not having too many neighbors
+(which makes census tracts almost always correlated) and not having too
+few neighbors, making it harder to pick up on spatial correlation. The
+KNN(4) structure is shown below.
+
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
+
+    ## 
+    ##  Moran I test under randomisation
+    ## 
+    ## data:  lasso_results$resid  
+    ## weights: Wb    
+    ## 
+    ## Moran I statistic standard deviate = 4.1422, p-value = 3.44e-05
+    ## alternative hypothesis: two.sided
+    ## sample estimates:
+    ## Moran I statistic       Expectation          Variance 
+    ##       0.236081076      -0.009523810       0.003515754
+
+Using the Moran’s I test with the KNN(4) structure shown above, there is
+very strong evidence to reject our null hypothesis of no spatial
+correlation between neighboring tracts. We thus conclude that census
+tracts closer together tend to have similar percentages of tests with
+EBLLs than census tracts further apart. Given this, we will need to use
+a model that accounts for this spatial autocorrelation. Two models that
+can potentially accomplish this are the **simultaneous autoregressive
+model (SAR)** and the **conditional autoregressive model (CAR)**. These
+models are fit in a similar way to an ordinary least squares model as we
+predict percent of tests with EBLLs using our selected variables,
+however, we add a component to the model that allows us to use
+surrounding neighborhood values at varying weights to estimate
+percentage of tests with EBLLs for each tract. After fitting both a CAR
+and SAR model using the four variables selected by LASSO and the KNN(4)
+neighborhood structure, we compared them using BIC and the Moran’s I
+test. From the Moran’s I test we learned the SAR model yielded strong
+evidence in support of independent residuals. This evidence was
+significantly weaker for the CAR model, implying remaining spatial
+autocorrelation in the residuals. The BIC (a criterion for model
+selection) was also superior for the SAR model in comparison to the CAR
+model, and thus we decided to proceed with the SAR structure.
+
 # References
 
 <div id="refs" class="references csl-bib-body hanging-indent">
@@ -137,11 +300,34 @@ Annual Blood Lead Levels - MN Data*.
 
 </div>
 
+<div id="ref-washHealth" class="csl-entry">
+
+“Common Sources of Lead Poisoning.” n.d. *Washington State Department of
+Health*.
+<https://doh.wa.gov/you-and-your-family/healthy-home/home-contaminants/lead/common-sources-lead-poisoning>.
+
+</div>
+
 <div id="ref-mdhdata" class="csl-entry">
 
 Health, Minnesota Department of. n.d. *Childhood Lead Exposure Map: MNPH
 Data Access - MN Dept. Of Health*.
 <https://mndatamaps.web.health.state.mn.us/interactive/leadtract.html>.
+
+</div>
+
+<div id="ref-heggeseth_2022" class="csl-entry">
+
+Heggeseth, Brianna. 2022. “Correlated Data Notes.” *Brianna C.
+Heggeseth*. <https://bcheggeseth.github.io/CorrelatedData/index.html>.
+
+</div>
+
+<div id="ref-mayo" class="csl-entry">
+
+“Lead Poisoning.” 2022. *Mayo Clinic*. Mayo Foundation for Medical
+Education; Research.
+<https://www.mayoclinic.org/diseases-conditions/lead-poisoning/symptoms-causes/syc-20354717>.
 
 </div>
 

@@ -55,7 +55,9 @@ MN1 <- get_acs(geography = "tract",
                             asianWalk = "B08105D_005",
                             Walk = "B08301_019",
                             MarrCoupleChldU3 = "B09002_003",
-                            SSIRecp = "B09010_001"),
+                            SSIRecp = "B09010_001", 
+                            construct = "C24050_003", 
+                            totalOcc = "C24050_001"),
                             # lessthan9999 = "B06010PR_026",
                             # lessthan14999 = "B06010PR_027",
                             # lessthan24999 = "B06010PR_028",
@@ -79,11 +81,13 @@ MN1_clean <- MN1 %>%
   mutate(propFamilyHouseholds = round(numFamilyHouseholdsE/totalhouseholdsE,3), 
          propNonFamilyHouseholds = round(numNonFamilyHouseholdsE/totalhouseholdsE,3), 
          propHomesBuiltPre1950 = round((builtpre1940E + built1940to1949E)/builttotalE,3),
-         propHomesBuilt1950to1969 = round((built1950to1959E+built1960to1969E)/builttotalE,3), 
+         propHomesBuilt1950to1969 = round((built1950to1959E+built1960to1969E)/builttotalE,3),
+         propHomesBuilt1970to1979 = round((built1970to1979E)/builttotalE,3),
          propHomesBuilt1970to1989 = round((built1970to1979E+built1980to1989E)/builttotalE,3), 
          propHomesBuilt1990to2009 = round((built1990to1999E+built2000to2009E)/builttotalE,3), 
          propHomesBuilt2010tonow = round((built2010to2013E+built2014tonowE)/builttotalE,3), 
-         numChildtestingage = male0to5E + female0to5E) %>%
+         numChildtestingage = male0to5E + female0to5E, 
+         propConstruction = constructE/totalOccE) %>%
   select(-numFamilyHouseholdsE, -numNonFamilyHouseholdsE, -totalhouseholdsE, -starts_with("built"))
 ```
 

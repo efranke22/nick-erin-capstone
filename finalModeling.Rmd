@@ -332,7 +332,7 @@ lasso_percent_variables <- lead_census %>%
   mutate(HighLead = as.factor(HighLead), 
          HighLead = relevel(factor(HighLead), ref="0"), 
          testRatio = tested/numChildtestingage) %>% 
-  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E, testRatio, GEOID, propHomesBuilt1950to1969, propHomesBuilt1970to1989, propHomesBuilt1990to2009, propHomesBuilt2010tonow, percent) %>%
+  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E, testRatio, GEOID, propHomesBuilt1950to1969, propHomesBuilt1970to1989, propHomesBuilt1990to2009, propHomesBuilt2010tonow, percent, propConstruction) %>%
   filter(HighLead == "1") %>%
   drop_na() %>% st_drop_geometry()
 
@@ -400,6 +400,10 @@ lasso_mod_out %>%
 
 Look for evidence of spatial correlation in residuals
 ```{r}
+high_metro_centroids <- st_centroid(st_geometry(lasso_results), of_largest_polygon = TRUE)
+knn <- knn2nb(knearneigh(high_metro_centroids, k = 4))
+nb_knn_net <- nb2lines(nb = knn, coords = high_metro_centroids, as_sf = TRUE)
+
 lasso_results <- lead_census %>%
   filter(HighLead == 1) %>%
   select(GEOID) %>%
@@ -411,10 +415,6 @@ spdep::moran.test(lasso_results$resid, Wb, alternative = "two.sided", randomisat
 
 Given spatial correlation in residuals, create a KNN neighborhood structure
 ```{r}
-high_metro_centroids <- st_centroid(st_geometry(lasso_results), of_largest_polygon = TRUE)
-knn <- knn2nb(knearneigh(high_metro_centroids, k = 4))
-nb_knn_net <- nb2lines(nb = knn, coords = high_metro_centroids, as_sf = TRUE)
-
 lasso_results %>%
   ggplot()+
   geom_sf(data = lasso_results, color = "gray", fill="lightblue")+
@@ -461,8 +461,11 @@ SAR Model 1 Evaluation. Create maps of predicted and actual percent and a map of
 lasso_results$sar_pred <- fitted(mod_sar)
 
 lasso_results %>%
+  select(sar_pred) %>%
+  st_join(lead_census,.) %>%
     ggplot() + 
-  geom_sf(aes(fill = sar_pred)) + 
+  geom_sf(size=.05,fill='white') + 
+  geom_sf(data = lasso_results,aes(fill = sar_pred),size=.5) + 
   labs(title = "Percent of Children with High Lead Blood Levels: SAR Predictions", fill = "") + 
   scale_fill_gradient(low = "white", high = "darkred", limits = c(0,0.12)) + theme_classic()+
   theme(axis.line = element_blank(), 
@@ -486,7 +489,7 @@ lasso_results %>%
 # Model Residuals 
 lasso_results %>%
     ggplot() + 
-  geom_sf(aes(fill = mod_car_knn)) + 
+  geom_sf(aes(fill = mod_sar_knn)) + 
   labs(title = "Residuals from SAR Model", fill = "Residuals") + 
   scale_fill_gradient2(mid = "white", high = "darkred", low = "navy") +
   theme_classic()+

@@ -17,6 +17,11 @@ library(survey)
 library(srvyr)
 library(sf)
 library(ggtext)
+library(tidymodels)
+library(spdep)
+library(probably)
+tidymodels_prefer()
+conflicted::conflict_prefer("spautolm", "spatialreg")
 
 #see DataCleaning.Rmd for data cleaning steps
 load("DataShapefiles/lead_spatial.RData")
@@ -118,7 +123,7 @@ lead_census %>%
   scale_fill_manual(values = c("navy", "red", "pink"))
 ```
 
-Comparing these pink tracts we have denoted as "high lead" tracts that contain less than 25% of homes built before 1950 to tracts we have denoted as having safe lead levels, there are a few things to notice. Our first thought was that perhaps these pink tracts were still significantly older than the safe lead level tracks and were just built largely in the 1960s and 70s. Lead-based paint and lead-contaminated dust are the most common sources of lead poisoning, and paint containing lead was not banned in the United States until 1978 [@washHealth]. Therefore, any home built prior to 1978 could serve as an exposure threat to children. It ended up that on average 56.1% percent of the homes in the pink tracts were built before 1979 compared to 54.8% of homes in the safe lead tracts. With such a small difference, there has to be something else correlated with children testing for EBLLs in particular tracts. Looking into other variables, we found the pink high lead tracts have a slightly higher population density at about 2 people/1000 $\text{m}^2$ than the safe lead tracts at 1.4 people/1000 $\text{m}^2$. Additionally, these pink high lead tracts have an estimated median income of \$63,431, whereas the safe lead tracts have an estimated median income of almost \$87,661. Lead exposure can also come through occupation (people exposed to lead through jobs in fields such as auto repair, mining, pipe fitting, battery manufacturing, painting, and construction can bring it home on their clothing), soil, pottery, herbal and folk remedies, the ingredient tamarind in candy, and cosmetics [@mayo]. Given the significant difference in median income between the pink high lead tracts and the safe lead tracts, it is possible that residents the pink high lead tracts live a different lifestyle than residents in the safe lead tracts that causes them to be exposed to lead at a higher rate. 
+Comparing these pink tracts we have denoted as "high lead" tracts that contain less than 25% of homes built before 1950 to tracts we have denoted as having safe lead levels, there are a few things to notice. Our first thought was that perhaps these pink tracts were still significantly older than the safe lead level tracks and were just built largely in the 1960s and 70s. Lead-based paint and lead-contaminated dust are the most common sources of lead poisoning, and paint containing lead was not banned in the United States until 1978 [@washHealth]. Therefore, any home built prior to 1978 could serve as an exposure threat to children. It ended up that on average 56.1% percent of the homes in the pink tracts were built before 1979 compared to 54.8% of homes in the safe lead tracts. With such a small difference, there has to be something else correlated with children testing for EBLLs in particular tracts. Looking into other variables, we found the pink high lead tracts have a slightly higher population density at about 2 people/1000 $\text{m}^2$ than the safe lead tracts at 1.4 people/1000 $\text{m}^2$. Additionally, these pink high lead tracts have an estimated median income of \$63,431, whereas the safe lead tracts have an estimated median income of almost \$87,661. Lead exposure can also come through occupation (people exposed to lead through jobs in fields such as auto repair, mining, pipe fitting, battery manufacturing, painting, and construction can bring it home on their clothing), soil, pottery, herbal and folk remedies, the ingredient tamarind in candy, and cosmetics [@mayo]. Given the significant difference in median income between the pink high lead tracts and the safe lead tracts, it is possible that residents from the pink high lead tracts live a different lifestyle than residents in the safe lead tracts that causes them to be exposed to lead at a higher rate. While it's clear we can't fully solve this mystery given the data we have, the identification of these somewhat unexpected "high lead" tracts is crucial as it can help direct resources and information toward these tracts in order to reduce lead exposure.
 
 ```{r, eval=FALSE}
 lead_census %>%
@@ -129,7 +134,7 @@ lead_census %>%
          density = PopE/area) %>%
    st_drop_geometry() %>%
   group_by(highleadNewHome) %>%
-  summarize(mean(PopE), mean(medageE), pre1950 = mean(propHomesBuiltPre1950, na.rm=TRUE), from50to69 = mean(propHomesBuilt1950to1969, na.rm=TRUE),from70to79 = mean(propHomesBuilt1970to1979, na.rm=TRUE), mean(propHomesBuilt1970to1989, na.rm=TRUE), mean(propHomesBuilt1990to2009, na.rm=TRUE), mean(propHomesBuilt2010tonow, na.rm=TRUE), mean(SSIRecpE, na.rm=TRUE), mean(medincomeE, na.rm=TRUE), mean(density, na.rm=TRUE), before79 = sum(pre1950, from50to69, from70to79), mean(numHispanicLatinoE)) 
+  summarize(mean(PopE), mean(medageE), pre1950 = mean(propHomesBuiltPre1950, na.rm=TRUE), from50to69 = mean(propHomesBuilt1950to1969, na.rm=TRUE),from70to79 = mean(propHomesBuilt1970to1979, na.rm=TRUE), mean(propHomesBuilt1970to1989, na.rm=TRUE), mean(propHomesBuilt1990to2009, na.rm=TRUE), mean(propHomesBuilt2010tonow, na.rm=TRUE), mean(SSIRecpE, na.rm=TRUE), mean(medincomeE, na.rm=TRUE), mean(density, na.rm=TRUE), before79 = sum(pre1950, from50to69, from70to79)) 
 ```
 
 ## Who is getting tested?
@@ -169,17 +174,203 @@ Interpretation is the same as every model.
 Thus far, we have developed a model to predict whether or not a census tract will have at least 1% of tests return with an indication of EBLLs. But its important to acknowledge that not all census tracts that we have denoted as "high lead" have the same proportion of tests indicating EBLLs. For the 106 "high lead" tracts, the distribution of the proportion of tests indicating EBLLs is shown below. 
 
 ```{r}
-lead_census %>%
+dotplot <- lead_census %>%
   filter(HighLead == "1") %>%
-  ggplot(aes(x=percent))+
+  mutate(outlier = case_when(percent >= 0.1 ~ 1, 
+                             TRUE ~ 0)) %>%
+  ggplot(aes(x=percent, fill = as.factor(outlier)))+
   geom_dotplot(dotsize = 0.9)+
   theme_classic()+
-  labs(x="", y="", title = "Proportion of tests with EBLLs for <strong><span style='color:red'>high lead </span></strong></b> census tracts")+
+  scale_fill_manual(values = c("black","darkred"))+
+  scale_x_continuous(breaks = c(0.01, 0.03, 0.05, 0.07, 0.09, 0.11), labels = scales::percent_format(accuracy = 1)) +
+  labs(x="", y="", title = "Percent of tests having EBLLs for the 106 <strong><span style='color:red'>high lead </span></strong></b>census tracts")+
   theme(plot.title.position = "plot", 
         plot.title = element_markdown(family = "mono", size = 10), 
         axis.text = element_markdown(family = "mono"), 
         axis.text.y = element_blank(), 
-        axis.ticks.y = element_blank())
+        axis.ticks.y = element_blank(), 
+        legend.position = "none")
+
+ramsey <- lead_census %>%
+  filter(primary_county == "Ramsey County") %>%
+  ggplot()+
+  geom_sf(aes(fill=percent), lwd = 0.2, color = "black")+
+  theme_classic()+
+  labs(title = "", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        legend.position = "none", 
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size=8),
+        legend.title = element_text(family="mono"))+
+  scale_fill_gradient(low = "white", high = "darkred")
+
+library(cowplot)
+  ggdraw() +
+  draw_plot(dotplot) +
+  draw_plot(ramsey, x = 0.5, y = .3, width = .5, height = .5)+
+    annotate(geom="text", label = "Two outlier \ncensus tracts in \nRamsey county", family = "mono", size = 3, x = 0.76, y = 0.28, color = "darkred")+
+    geom_curve(aes(x = 0.75, y = 0.2, xend = 0.85, yend = 0.15),
+  arrow = arrow(length = unit(0.03, "npc")), color = "darkred")
+```
+
+In order to better understand this distribution and what is correlated with certain tracts having a higher percentage of tests with EBLLs than others, we will build a model for this percentage using solely the 106 "high lead" tracts. Similar to our logistic model building process to predict whether or not a tract is "high lead", we will begin with a LASSO regression model. Variables that remain in the model after the shrinkage process can be thought of as most important at helping us identify why certain tracts have a higher percentage of tests with EBLLs than others.
+
+```{r, results = "hide", include=FALSE}
+lasso_percent_variables <- lead_census %>%
+  mutate(HighLead = as.factor(HighLead), 
+         HighLead = relevel(factor(HighLead), ref="0"), 
+         testRatio = tested/numChildtestingage, 
+         area = st_area(geometry),
+         density = PopE/area) %>% 
+  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E, testRatio, GEOID, propHomesBuilt1950to1969, propHomesBuilt1970to1989, propHomesBuilt1990to2009, propHomesBuilt2010tonow, percent, density) %>%
+  filter(HighLead == "1") %>%
+  drop_na() %>% st_drop_geometry()
+
+set.seed(123)
+percent_cv10 <- vfold_cv(lasso_percent_variables, v = 10)
+
+lm_lasso_spec_tune <- 
+  linear_reg() %>%
+  set_args(mixture = 1, penalty = tune()) %>% 
+  set_engine(engine = 'glmnet') %>%
+  set_mode('regression') 
+
+percent_rec <- recipe(percent ~., data = lasso_percent_variables) %>%
+  update_role(GEOID, new_role = "ID") %>% # we don't want to use ID as predictor
+  step_novel(all_nominal_predictors()) %>% 
+  step_dummy(all_nominal_predictors()) %>% 
+  step_nzv(all_predictors()) %>%
+  step_normalize(all_numeric_predictors())  # important step for LASSO
+
+lasso_wf_percent <- workflow() %>% 
+  add_recipe(percent_rec) %>%
+  add_model(lm_lasso_spec_tune) 
+
+penalty_grid <- grid_regular(
+  penalty(range = c(-5, 3)), #log10 transformed 10^-5 to 10^3
+  levels = 50)
+
+tune_res <- tune_grid( # new function for tuning hyperparameters
+  lasso_wf_percent, # workflow
+  resamples = percent_cv10, # folds
+  metrics = metric_set(rmse),
+  grid = penalty_grid # penalty grid
+)
+
+autoplot(tune_res)
+
+collect_metrics(tune_res) %>%
+  filter(.metric == 'rmse') %>%
+  select(penalty, rmse = mean) 
+
+best_penalty <- select_best(tune_res, metric = 'rmse', desc(penalty)) 
+percent_final_wk <- finalize_workflow(lasso_wf_percent, best_penalty) # incorporates penalty value to workflow
+percent_final_fit <- fit(percent_final_wk, data = lasso_percent_variables)
+tidy(percent_final_fit)
+
+percent_final_fit %>% predict(new_data = lasso_percent_variables)
+
+# we can predict the percent of high lead children on average within 1.5% 
+tune_res %>% collect_metrics() %>% filter(penalty == (best_penalty %>% pull(penalty)))
+
+lasso_mod_out <- percent_final_fit %>%
+    predict(new_data = lasso_percent_variables) %>%
+    bind_cols(lasso_percent_variables) %>%
+    mutate(resid = percent - .pred)
+
+lasso_mod_out %>% 
+  ggplot(aes(x = .pred, y = resid)) + 
+  geom_point() +
+  geom_smooth(se = FALSE) + 
+  geom_hline(yintercept = 0) + 
+  theme_classic()
+```
+
+Using 10-fold cross validation on our 106 census tracts, the LASSO modeling process identified tract population, the proportion of homes built between 1950 and 1969, the proportion of homes built before 1950, and the estimated mean receipt of supplemental security income (SSI) for households with children under 18 as the most important predictors of percentage of tests with EBLLs. Interestingly, population and amount of SSI both showed a negative relationship with percentage of tests with EBLLs, meaning more highly populated tracts tend to have a lower proportion of tests with EBLLs holding other variables constant. Additionally, tracts receiving more SSI tend to have a lower proportion of tests with EBLLs holding other variables constant. These relationships are shown in the plots below. 
+
+```{r, out.width='45%'}
+lead_census %>%
+  filter(HighLead == "1") %>%
+  ggplot(aes(x=PopE, y=percent))+
+  geom_point()+
+  theme_classic()+
+  labs(title = "Tract population vs percent of tests with EBLLs", x="", y="")+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"))
+
+lead_census %>%
+  filter(HighLead == "1") %>%
+  ggplot(aes(x=SSIRecpE, y=percent))+
+  geom_point()+
+  theme_classic()+
+  labs(title = "SSI Reciepts ($) vs percent of tests with EBLLs", x="", y="")+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"))
+```
+
+The reasoning for this phenomena could be that such higher populated and impoverished tracts are viewed "higher risk" for lead exposure and have received greater resources to prevent it thus far.
+
+Now that we have our model, we can evaluate it. Looking first at our prediction errors, the model appears relatively solid with a mean estimated error of 1.5%. While this is good news, our model must also have residuals that do not have spatial autocorrelation. Spatial autocorrelation means residuals in one census tract are related to the residuals in the census tracts around it, which is problematic because we violate the assumption of independence of residuals and jeopardize the validity of hypothesis tests. We can test for spatial autocorrelation with something called the Moran's I test. In order to run the Moran's I test, we must decide in what way we want to define census tracts as "close". In other words, we must define a **neighborhood structure**. There are many options when defining a neighborhood structure. We can define tracts as neighbors if they touch at all, even just at a on point such as a corner. This is called the Queen neighborhood structure. Another option is the Rook neighborhood structure, which defines tracts as neighbors if they share an edge (more than just a corner). Neighbors can also be defined using distance. The KNN method calculates the distance between the centers (or centroids) of each census tract, and then defines a neighborhood based on K nearest tracts, distanced based on the centers [@heggeseth_2022]. Because we are only looking at census tracts with high lead levels, some tracts do not touch and thus we will use the KNN structure with 4 neighbors. 4 neighbors gives a nice balance between not having too many neighbors (which makes census tracts almost always correlated) and not having too few neighbors, making it harder to pick up on spatial correlation. The KNN(4) structure is shown below. 
+
+```{r}
+lasso_results <- lead_census %>%
+  filter(HighLead == 1) %>%
+  select(GEOID) %>%
+  right_join(lasso_mod_out, by = "GEOID")
+
+high_metro_centroids <- st_centroid(st_geometry(lasso_results), of_largest_polygon = TRUE)
+knn <- knn2nb(knearneigh(high_metro_centroids, k = 4))
+nb_knn_net <- nb2lines(nb = knn, coords = high_metro_centroids, as_sf = TRUE)
+
+lasso_results %>%
+  select(resid) %>%
+  st_join(lead_census,.) %>%
+    ggplot() + 
+  geom_sf(size=.05,fill='white') + 
+  geom_sf(data = lasso_results,fill = "lightblue",size=.1) + 
+  geom_sf(data=high_metro_centroids, lwd = 0.5)+
+  geom_sf(data = nb_knn_net, lwd = 0.25)+
+  labs(title = "KNN(4) Neighborhood Structure for High Lead Tracts", fill = "") + 
+  theme_classic()+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot")
+
+Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
+spdep::moran.test(lasso_results$resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
+```
+
+Using the Moran's I test with the KNN(4) structure shown above, there is very strong evidence to reject our null hypothesis of no spatial correlation between neighboring tracts. We thus conclude that census tracts closer together tend to have similar percentages of tests with EBLLs than census tracts further apart. Given this, we will need to use a model that accounts for this spatial autocorrelation. Two models that can potentially accomplish this are the **simultaneous autoregressive model (SAR)** and the **conditional autoregressive model (CAR)**. These models are fit in a similar way to an ordinary least squares model as we predict percent of tests with EBLLs using our selected variables, however, we add a component to the model that allows us to use surrounding neighborhood values at varying weights to estimate percentage of tests with EBLLs for each tract.  After fitting both a CAR and SAR model using the four variables selected by LASSO and the KNN(4) neighborhood structure, we compared them using BIC and the Moran's I test. From the Moran's I test we learned the SAR model yielded strong evidence in support of independent residuals. This evidence was significantly weaker for the CAR model, implying remaining spatial autocorrelation in the residuals. The BIC (a criterion for model selection) was also superior for the SAR model in comparison to the CAR model, and thus we decided to proceed with the SAR structure.
+
+```{r, results="hide"}
+library(spatialreg)
+
+Ww <- nb2listw(knn, style = "W")
+Wb <- nb2listw(knn, style = "B")
+
+#SAR model
+mod_sar <- spautolm(formula = percent~ PopE + propHomesBuiltPre1950 + SSIRecpE + propHomesBuilt1950to1969, data = lasso_results, listw = Ww, family = "SAR")
+summary(mod_sar)
+BIC(mod_sar)
+
+lasso_results$mod_sar_knn <- resid(mod_sar)
+spdep::moran.test(lasso_results$mod_sar_knn, Wb, alternative = "two.sided", randomisation = TRUE)
+
+#CAR model 
+mod_car <- spautolm(formula = percent~ PopE + propHomesBuiltPre1950 + SSIRecpE + propHomesBuilt1950to1969, data = lasso_results, listw = Ww, family = "CAR")
+summary(mod_car)
+BIC(mod_car)
+
+lasso_results$mod_car_knn <- resid(mod_car)
+spdep::moran.test(lasso_results$mod_car_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 ```
 
 

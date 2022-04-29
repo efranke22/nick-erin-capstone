@@ -175,7 +175,7 @@ lead_testing %>%
 
 Furthermore, higher income census tracts are getting tested less compared to lower income census tracts. This is intuitive as lower income census tracts seem to be at more risk in terms of living in older houses and thus more exposed to high lead. 
 
-## Modeling 
+# Modeling 
 
 In the upcoming section, we will be modeling the binary outcome of whether a census tract is considered Highlead or not (1% or greater). 
 
@@ -196,11 +196,11 @@ mod1_prediction %>%
         legend.text = element_text(family = "mono"))
 ```
 
-# Lasso 
+## Lasso 
 
 We use a Lasso Logistic Regression to distinguish important variables in predicting census tracts with high lead concentrations. After tuning for the best penalty, we discovered that income, proportions of homes built before 1950, testing ratio, and median age of the census tract are important variables in modeling the variance of high lead levels. However, it is difficult to account for spatial correlation, so we will not be interpreting the output and standard errors. Instead, we will use the important variables and fit it with a random effect model to account for spatial correlation. Spatial correlation is very important in our study as census tracts that are close together will share many similar characteristics in regards to income, community, etc that will result in correlated residuals if left unaccounted for.  
 
-# Random Effect Models
+## Random Effect Models
 
 We decide to use a random effect model through the the X and Y coordinates in the centroids. We are able to do so by creating a numeric factor representing the coordinates of sampled locations. We fit a constant mu for computational purposes. Because we have the matern correlation coefficient, we do assume isotropic. We fit two different models, one with our designated important varaibles from lasso and another with an interaction between old homes and income category. The interaction between proportion of old homes and income category suggests that income plays a different role among highlead levels conditioned on proportion of hold homes. Perhaps if we are at a high income level and have high proportion of old homes, we may see reduced propbability of high lead levels due to the ability to renovate. As long as rho is not zero, we are accounting for spatial correlation. 
 
@@ -318,8 +318,6 @@ lead_census_clean %>%
         plot.title.position = "plot", 
         legend.text = element_text(family = "mono"))
 ```
-
-
 
 # Modeling the percent of children by census tract with EBLLs
 
@@ -500,7 +498,7 @@ Wb <- nb2listw(knn, style = "B") #style = 'B' gives binary weights
 spdep::moran.test(lasso_results$resid, Wb, alternative = "two.sided", randomisation = TRUE)  # Using randomization test
 ```
 
-Using the Moran's I test with the KNN(4) structure shown above, there is very strong evidence to reject our null hypothesis of no spatial correlation between neighboring tracts. We thus conclude that census tracts closer together tend to have similar percentages of tests with EBLLs than census tracts further apart. Given this, we will need to use a model that accounts for this spatial autocorrelation. Two models that can potentially accomplish this are the **simultaneous autoregressive model (SAR)** and the **conditional autoregressive model (CAR)**. These models are fit in a similar way to an ordinary least squares model as we predict percent of tests with EBLLs using our selected variables, however, we add a component to the model that allows us to use surrounding neighborhood values at varying weights to estimate percentage of tests with EBLLs for each tract.  After fitting both a CAR and SAR model using the four variables selected by LASSO and the KNN(4) neighborhood structure, we compared them using BIC and the Moran's I test. From the Moran's I test we learned the SAR model yielded strong evidence in support of independent residuals. This evidence was significantly weaker for the CAR model, implying remaining spatial autocorrelation in the residuals. The BIC (a criterion for model selection) was also superior for the SAR model in comparison to the CAR model, and thus we decided to proceed with the SAR structure.
+Using the Moran's I test with the KNN(4) structure shown above, there is very strong evidence to reject our null hypothesis of no spatial correlation between neighboring tracts. We thus conclude that census tracts closer together tend to have similar percentages of tests with EBLLs than census tracts further apart. Given this, we will need to use a model that accounts for this spatial autocorrelation. Two models that can potentially accomplish this are the **simultaneous autoregressive model (SAR)** and the **conditional autoregressive model (CAR)**. These models are fit in a similar way to an ordinary least squares model as we predict percent of tests with EBLLs using our selected variables, however, we add a component to the model that allows us to use surrounding neighborhood values at varying weights to estimate percentage of tests with EBLLs for each tract.  After fitting both a CAR and SAR model using the four variables selected by LASSO and the KNN(4) neighborhood structure, we compared them using BIC and the Moran's I test. From the Moran's I test we learned the SAR model yielded strong evidence in support of independent residuals. This evidence was significantly weaker for the CAR model, implying remaining spatial autocorrelation in the residuals. The BIC (a criterion for model selection) was also superior for the SAR model in comparison to the CAR model, and thus we decided to proceed with the SAR structure. While we tested multiple other SAR models with different combinations of explanatory variables, the model with the four variables selected by LASS0 proved our best model with the lowest average prediction error (about 1.4%). 
 
 ```{r, results="hide"}
 library(spatialreg)
@@ -514,6 +512,7 @@ summary(mod_sar)
 BIC(mod_sar)
 
 lasso_results$mod_sar_knn <- resid(mod_sar)
+sqrt(mean(lasso_results$mod_sar_knn^2))
 spdep::moran.test(lasso_results$mod_sar_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 
 #CAR model 
@@ -524,6 +523,91 @@ BIC(mod_car)
 lasso_results$mod_car_knn <- resid(mod_car)
 spdep::moran.test(lasso_results$mod_car_knn, Wb, alternative = "two.sided", randomisation = TRUE)
 ```
+
+While the average predictor error of our model is relatively small at 1.4%, one obvious downfall of this model is that it did not predict any census tract to have a percent of tests with EBLLs above 5.6%, as seen below. In reality - as shown in the dotplot earlier in this modeling section - seven tracts had a percent of tests with EBLLs over 6% and two tracts had levels over 10%. Thus, our model does not quite capture as large of a distribution in tract percentages as well as we might have liked. 
+```{r}
+lasso_results$sar_pred <- fitted(mod_sar)
+
+lasso_results %>%
+  select(sar_pred) %>%
+  st_join(lead_census,.) %>%
+    ggplot() + 
+  geom_sf(size=.05,fill='white') + 
+  geom_sf(data = lasso_results,aes(fill = sar_pred),size=.2) + 
+  labs(title = "Percent of Tests with High Lead Blood Levels: SAR Predictions", fill = "") + 
+  scale_fill_gradient(low = "lightpink", high = "darkred", labels = scales::percent_format(accuracy = 1)) + 
+  theme_classic()+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+```
+
+However, our model does indeed do a good job of not systematically over or under-predicting particular areas of the Twin Cities metropolitan area. We see that tracts both inside and outside city limits have a mix of positive and negative residuals and there are several areas where percent of tests with EBLLs are over predicted in one tract and under predicted in its neighboring tract. Given the strong evidence that spatial autocorrelation was accounted for from the Moran's I test, this is not surprising. 
+```{r}
+lasso_results %>%
+  select(mod_sar_knn) %>%
+  st_join(lead_census,.) %>%
+    ggplot() + 
+  geom_sf(size=.05,fill='white') + 
+  geom_sf(data = lasso_results,aes(fill = mod_sar_knn),size=.2) + 
+  labs(title = "SAR Residuals for percent of tests with EBLLs", fill = "") + 
+  scale_fill_gradient2(low = "navy", mid = "white", high = "darkred", labels = scales::percent_format(accuracy = 1)) + 
+  theme_classic()+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(), 
+        plot.title = element_text(family = "mono", size =11), 
+        plot.title.position = "plot", 
+        legend.text = element_text(family = "mono"))
+```
+
+The biggest takeaway from our model is what we can learn about lead exposure patterns using it. Takeaways are generally similar to the LASSO regression model we fit, but we now have more certainty in our coefficient estimates and their significance given we are not breaking the assumption of independent residuals. The two significant coefficients in our model are tract population and the proportion of homes built from 1950 to 1969 in each tract. Both coefficients are significant on the $\alpha=0.05$ level. With regard to population, we estimate for every additional 1000 people residing in a tract that the proportion of tests with EBLLs falls on average 0.4%, holding other variables constant. Given that census tracts are intended to have similar populations (ideally ~4000 people), this might not seem practically significant at first. However, the 106 "high lead" tracts have populations ranging from about 2,000 to over 10,000 people per tract, with the majority falling in the 3000 to 6000 range. Thus, comparing a 6,000 resident to 3,000 resident tract, we'd expect the 6,000 resident tract to have a percent of tests with EBLLs about 1.2% lower than that of the 3,000 resident tract, which is a considerable difference. When looking at our second significant variable, we learn that with every 10% increase in the proportion of homes built between 1950 and 1969 we can expect the percent of tests with EBLLs to fall about *0.4%* (CHECK), holding other variables constant. This relationship is shown in the graph below on the left and is rather interesting when contrasted to the graph on the right, which displays proportion of homes built before 1950 versus percent of tests with EBLLs for "high lead" tracts. The key takeaway here is that as tracts tend to have more homes built between 1950-1969, **their percent of tests with EBLLs tends to fall**, while as tracts tend to have more homes built prior to 1950 their **percent of tests with EBLLs tends to rise**. Given that lead paint was not banned in the United States until 1978, this contrasting relationship is incredibly surprising!
+
+```{r, out.width='45%'}
+lead_census %>%
+  filter(HighLead == "1") %>%
+  ggplot(aes(x=propHomesBuilt1950to1969, y=percent))+
+  geom_point()+
+  theme_classic()+
+  labs(title = "Proportion of homes built from 1950-1969 vs percent of tests with EBLLs", x="percent of homes built 1950-1969", y="percent of tests with EBLLs")+
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"), 
+        axis.title = element_markdown(family="mono", size = 8))
+
+lead_census %>%
+  filter(HighLead == "1") %>%
+  ggplot(aes(x=propHomesBuiltPre1950, y=percent))+
+  geom_point()+
+  theme_classic()+
+  labs(title = "Proportion of homes built pre 1950 vs percent of tests with EBLLs", x="percent of homes built before 1950", y="percent of tests with EBLLs")+
+  scale_x_continuous(labels = scales::percent_format(accuracy = 1))+
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1))+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"), 
+        axis.title = element_markdown(family="mono", size = 8))
+```
+
+The SSI and proportion of homes built before 1950 variables are both insignificant in this model, though have coefficient directions that make intuitive sense given what we have discussed thus far. Holding other variables constant, as the proportion of homes in a tract built prior to 1950 increases, the percent of tests with EBLLs in that tract increases. Additionally, as discussed when interpreting the LASSO model, tracts receiving more SSI tend to have a lower percentage of tests with EBLLs holding other variables constant.
+
+# Limitations
+
+- could not get yearly data 
+- many variables are estimates (Age is estimated from ACS and Census data. Home values come from government valuations which is done for tax purposes). Should be taken into account when interpreting model coefficients. 
+- no neighborhood structure is going to perfect (other types of ways tracts might be similar, maybe close to rivers or highways or something?)
+- wanting to webscrape that arcgis data on lead pipes but not having the resources/time
+
+
+# Conclusions
+
+
+# Acknowledgements 
 
 
 # References 

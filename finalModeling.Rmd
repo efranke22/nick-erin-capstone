@@ -224,8 +224,14 @@ mod1_prediction <- final_lasso_preds %>%
   mutate(logodds = predict(mod1, data = final_lasso_preds),
          odds = exp(logodds),
          probability = odds/(1+odds)) %>% 
-  mutate(predHighLead = case_when(probability >= 0.7~1,
-                                  probability < 0.7~0))
+  mutate(predHighLead = case_when(probability >= 0.99~1,
+                                  probability < 0.99~0)) %>% 
+  mutate(Correct = case_when(predHighLead == HighLead ~ 1,
+                             predHighLead != HighLead ~ 0)) %>% 
+  st_drop_geometry() %>% 
+  select(Correct) %>% 
+  group_by(Correct) %>% 
+  count()
 
 mod1_prediction %>%
   ggplot() +

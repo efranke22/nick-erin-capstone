@@ -139,7 +139,26 @@ lead_census %>%
 
 ## Who is getting tested?
 
-Interesting that there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. Within our data set, we factor the testing ratio and high lead exposure and note some interesting patterns with regards to testing ratios. We see that there seems to be several newer homes in census tracts that are in the high lead factor but are not getting tested. Among the census tracts that have high testing ratios, there is a clear pattern that older census tracts seem to be testing more often for High Lead. 
+A large factor of obtaining high lead percentages is related to how often an area is tested, as the more tests issued, the more likely we will record a high lead percentage. It is interesting  there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. These census tracts seem to be outside of the Metropolitan area and more spread out around our location of study. 
+
+```{r}
+lead_census_clean <- lead_census_clean %>% 
+  mutate(WhyUNoTest = case_when(TestingHigh == 0 & CensusAgeE < 66 & HighLead == 1 ~ 1,
+                                TRUE ~ 0))
+lead_census_clean %>%
+  ggplot()+
+  geom_sf(aes(fill = WhyUNoTest), lwd = 0.2, color = "white")+
+  theme_classic()+
+  labs(title = "Places with Highlead, new houses but not getting tested", fill = "")+
+  theme(axis.line = element_blank(), 
+        axis.text = element_blank(), 
+        axis.ticks = element_blank(),
+        plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 9))+
+  scale_fill_viridis_c()
+```
+
+Within our data set, we factor the testing ratio and high lead exposure and note some interesting patterns with regards to testing ratios. We see that there seems to be several newer homes in census tracts that are in the high lead factor but are not getting tested, this may be a result of ignorance or delayed news. Among the census tracts that have high testing ratios, there is a clear pattern that older census tracts, meaning census tracts with older homes, seem to be testing more often for high lead. 
 
 ```{r}
 lead_census_clean %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
@@ -179,13 +198,67 @@ mod1_prediction %>%
 
 # Lasso 
 
-We use a Lasso Logistic Regression to distinguish important variables in predicting census tracts with high lead concentrations. After tuning for the best penalty, we discovered that XXX are important variables. However, it is difficult to account for spatial correlation, so we will not be interpreting the output and standard errors. Instead, we will use the important variables and fit it with a fixed effect model. 
+We use a Lasso Logistic Regression to distinguish important variables in predicting census tracts with high lead concentrations. After tuning for the best penalty, we discovered that income, proportions of homes built before 1950, testing ratio, and median age of the census tract are important variables in modeling the variance of high lead levels. However, it is difficult to account for spatial correlation, so we will not be interpreting the output and standard errors. Instead, we will use the important variables and fit it with a fixed effect model. 
 
-# Fixed Effect
+# Random Effect Models
 
-We decide to use a fixed effect model through the the X and Y coordinates in the centroids. We fit a constant mu for computational purposes. Because i have matern correlation coefficient, does assume isotropic.   
+We decide to use a random effect model through the the X and Y coordinates in the centroids. We are able to do so by creating a numeric factor representing the coordinates of sampled locations. We fit a constant mu for computational purposes. Because we have the matern correlation coefficient, we do assume isotropic. We fit two different models, one with our designated important varaibles from lasso and another with an interaction between old homes and income category. As long as rho is not zero, we are accounting for spatial correlation. 
 
 Interpretation is the same as every model. 
+
+```{r}
+# logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=mod1data,control.HLfit = list(algebra='decorr'))
+#logistic_mod1 <- fitme(HighLead ~ medincomeE + propHomesBuiltPre1950 + tested + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=final_lasso_preds,control.HLfit = list(algebra='decorr'))
+
+mod1 <- readRDS("logistic_mod1_edited.rds")
+summary(mod1)
+
+# logistic_mod2 <- fitme(HighLead ~ IncomeCategory*propHomesBuiltPre1950 + testRatio + medageE + Matern(1 | X+Y), fixed = list(nu = 0.5), family = binomial(), data=mod2data,control.HLfit = list(algebra='decorr'))
+
+mod2 <- readRDS("logistic_mod2_edited.rds")
+summary(mod2)
+
+```
+
+Now that we have our two models, we can evaluate them. Note, that we use a threshold of 70% to predict if a census tract is to be considered in the high lead category or not. Meaning that if the logistic regression gives us a probability of .70 or higher, we will have a hard prediction that the census area is high lead.
+
+The signs of all coefficients mkae sense, as income increases, the log odds ratio decreases by -0.16 for every 1000 dollar increase in median income. 
+
+```{r}
+mod1_prediction <- mod1data %>% 
+  mutate(logodds = predict(mod1, data = final_lasso_preds),
+         odds = exp(logodds),
+         probability = odds/(1+odds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.7~1,
+                                  probability < 0.7~0))
+
+Accuracy <- final_lasso_preds %>% 
+  mutate(logodds = predict(mod1, data = final_lasso_preds),
+         odds = exp(logodds),
+         probability = odds/(1+odds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.90~1,
+                                  probability < 0.90~0)) %>% 
+  mutate(Correct = case_when(predHighLead == HighLead ~ 1,
+                             predHighLead != HighLead ~ 0)) %>% 
+  st_drop_geometry() %>% 
+  group_by(Correct) %>% 
+  count()
+
+mod2data <- final_lasso_preds%>%
+  mutate(IncomeCategory = case_when(medincomeE > 0 & medincomeE < 60000 ~ "low",
+                                    medincomeE >= 60001 & medincomeE < 80000 ~ "medlow",
+                                    medincomeE >= 80001 & medincomeE < 100000 ~ "medhigh",
+                                    medincomeE >= 100001 ~ "high"))  %>% 
+  mutate(medincomeE = medincomeE/1000,
+         propHomesBuiltPre1950 = propHomesBuiltPre1950*100) 
+mod2_prediction <- mod2data %>% na.omit() %>% 
+  mutate(logodds = predict(mod2, data = mod2data),
+         odds = exp(logodds),
+         probability = odds/(1+odds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.7~1,
+                                  probability < 0.7~0))
+```
+
 
 # Modeling the percent of children by census tract with EBLLs
 

@@ -134,6 +134,36 @@ lead_census %>%
 
 ## Who is getting tested?
 
+Interesting that there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. Within our data set, we factor the testing ratio and high lead exposure and note some interesting patterns with regards to testing ratios. We see that there seems to be several newer homes in census tracts that are in the high lead factor but are not getting tested. Among the census tracts that have high testing ratios, there is a clear pattern that older census tracts seem to be testing more often for High Lead. 
+
+```{r}
+lead_census_clean %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
+  geom_density(alpha = 0.35)+
+  facet_wrap(~TestingHigh)
+
+lead_testing %>%
+  filter(HighLead == 1) %>%
+  ggplot(aes(x=medincomeE, fill = multipleTest))+
+  geom_density(alpha=0.5)+
+  theme_classic()+
+  scale_fill_manual(values = c("red", "navy"))
+```
+
+Furthermore, higher income census tracts are getting tested less compared to lower income census tracts. This is intuitive as lower income census tracts seem to be at more risk in terms of living in older houses and thus more exposed to high lead. 
+
+## Modeling 
+
+In the upcoming section, we will be modeling the binary outcome of whether a census tract 
+# Lasso 
+
+We use a Lasso Logistic Regression to distinguish important variables in predicting census tracts with high lead concentrations. After tuning for the best penalty, we discovered that XXX are important variables. However, it is difficult to account for spatial correlation, so we will not be interpreting the output and standard errors. Instead, we will use the important variables and fit it with a fixed effect model. 
+
+# Fixed Effect
+
+We decide to use a fixed effect model through the the X and Y coordinates in the centroids. We fit a constant mu for computational purposes. Because i have matern correlation coefficient, does assume isotropic.   
+
+Interpretation is the same as every model. 
+
 # Modeling the percent of children by census tract with EBLLs
 
 Thus far, we have developed a model to predict whether or not a census tract will have at least 1% of tests return with an indication of EBLLs. But its important to acknowledge that not all census tracts that we have denoted as "high lead" have the same proportion of tests indicating EBLLs. For the 106 "high lead" tracts, the distribution of the proportion of tests indicating EBLLs is shown below. 

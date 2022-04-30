@@ -142,6 +142,8 @@ lead_census %>%
 A large factor of obtaining high lead percentages is related to how often an area is tested, as the more tests issued, the more likely we will record a high lead percentage since the census tract is taking precautions. It is interesting  there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. These census tracts seem to be outside of the Metropolitan area and more spread out around our location of study. 
 
 ```{r}
+lead_census_clean <- lead_census %>%
+  filter(!is.na(medincomeE), !is.na(medageE), !is.na(propHomesBuiltPre1950), !is.na(tested))
 lead_census_clean <- lead_census_clean %>% 
   mutate(WhyUNoTest = case_when(TestingHigh == 0 & CensusAgeE < 66 & HighLead == 1 ~ 1,
                                 TRUE ~ 0))
@@ -161,6 +163,15 @@ lead_census_clean %>%
 Within our data set, we factor the testing ratio and high lead exposure and note some interesting patterns with regards to testing ratios. We see that there seems to be several newer homes in census tracts that are in the high lead factor but are not getting tested, this may be a result of ignorance or delayed news. Among the census tracts that have high testing ratios, areas with relatively older houses are getting tested more often, which is intuitive as older homes tend to have lead pipes. 
 
 ```{r}
+lead_testing <- lead_census_clean %>%
+  st_drop_geometry() %>%
+  mutate(testRatio = tested/numChildtestingage, 
+         CensusAgeE = propHomesBuiltPre1950 * runif(1, 72,122) + propHomesBuilt1950to1969*62.5 + propHomesBuilt1970to1989*42.5 + propHomesBuilt1990to2009*22.5 + propHomesBuilt2010tonow*6, highIncome = case_when(medincomeE > 100000 ~ "highInc",
+                                TRUE ~ "lowerInc"),
+         Homecat = cut(CensusAgeE, 3), 
+         multipleTest = case_when(testRatio > 1 ~ "manyTest",
+                                  TRUE ~ "lessTest"))
+
 lead_census_clean %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
   geom_density(alpha = 0.35)+
   facet_wrap(~TestingHigh)
@@ -598,16 +609,13 @@ The SSI and proportion of homes built before 1950 variables are both insignifica
 
 # Limitations
 
-- could not get yearly data 
-- many variables are estimates (Age is estimated from ACS and Census data. Home values come from government valuations which is done for tax purposes). Should be taken into account when interpreting model coefficients. 
-- no neighborhood structure is going to perfect (other types of ways tracts might be similar, maybe close to rivers or highways or something?)
-- wanting to webscrape that arcgis data on lead pipes but not having the resources/time
-
+One of the main limitations in our analysis was data. While we are incredibly thankful to have access to public lead data and demographics on the census tract level, we had been hoping to complete a spatial-temporal analysis looking at the percent of tests with EBLLs in each tract each year dating back to the early 2000s. Unfortunately, the Minnesota Department of Health did not have this data on hand. An additional goal of our was to look at building-specific data available through ArcGIS on lead piping for the St. Paul Regional Water Services (SPRWS) area and incorporate it into our analysis. However, we ran out of time to learn how to web scrape this and so this will be a task for the near future. One other limitation related to the data for this project is that many of the variables we used are estimates. For example, mean tract age is estimated from ACS and census data. Home values come from government valuations which is done for tax purposes. The fact that there is likely a fair amount of error in these estimates should be taken into account when interpreting model coefficients. Also related to the topic of modeling is that fact that no neighborhood structure we choose is going to be perfect. For example, we chose to use the KNN(4) neighborhood structure for our models, which defines four neighbors for every tract using distances between tract centroids. However, it is possible that tracts could be similar in other ways. Tracts close in distance could be incredibly different due to a highway running between them, while tracts further apart but both bordering the river could actually be more similar. 
 
 # Conclusions
 
 
 # Acknowledgements 
 
+Thank you to our professor Brianna Heggeseth for teaching us the mapping and modeling techniques used in this analysis, as well as for providing support and resources throughout this project. We also thank the Minnesota Department of Health and creators of the tidycensus package for providing publicly available data that made our work possible. 
 
 # References 

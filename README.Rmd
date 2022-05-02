@@ -186,7 +186,7 @@ lead_testing %>%
 
 Furthermore, higher income census tracts are getting tested less compared to lower income census tracts. This is intuitive as lower income census tracts seem to be at more risk in terms of living in older houses and thus more exposed to high lead. 
 
-# Modeling 
+## Modeling 
 
 In the upcoming section, we will be modeling the binary outcome of whether a census tract is considered Highlead or not (1% or greater). 
 
@@ -211,9 +211,80 @@ mod1_prediction %>%
 
 We use a Lasso Logistic Regression to distinguish important variables in predicting census tracts with high lead concentrations. After tuning for the best penalty, we discovered that income, proportions of homes built before 1950, testing ratio, and median age of the census tract are important variables in modeling the variance of high lead levels. However, it is difficult to account for spatial correlation, so we will not be interpreting the output and standard errors. Instead, we will use the important variables and fit it with a random effect model to account for spatial correlation. Spatial correlation is very important in our study as census tracts that are close together will share many similar characteristics in regards to income, community, etc that will result in correlated residuals if left unaccounted for.  
 
-## Random Effect Models
+```{r}
+# MODEL RECIPE AND TUNING
+set.seed(123)
 
-We decide to use a random effect model through the the X and Y coordinates in the centroids. We are able to do so by creating a numeric factor representing the coordinates of sampled locations. We fit a constant mu for computational purposes. Because we have the matern correlation coefficient, we do assume isotropic. We fit two different models, one with our designated important varaibles from lasso and another with an interaction between old homes and income category. The interaction between proportion of old homes and income category suggests that income plays a different role among highlead levels conditioned on proportion of hold homes. Perhaps if we are at a high income level and have high proportion of old homes, we may see reduced propbability of high lead levels due to the ability to renovate. As long as rho is not zero, we are accounting for spatial correlation. 
+lasso_log_variables <- lead_census %>%
+  mutate(HighLead = as.factor(HighLead), 
+         HighLead = relevel(factor(HighLead), ref="0"), 
+         testRatio = tested/numChildtestingage) %>% 
+  select(HighLead, medageE, medincomeE, NumHouseE, PopE, propFamilyHouseholds, propHomesBuiltPre1950, SSIRecpE, CensusAgeE, tested, MarrCoupleChldU3E, testRatio, GEOID) %>%
+  drop_na() %>% st_drop_geometry()
+
+data_cv10 <- vfold_cv(lasso_log_variables, v = 10)
+
+logistic_lasso_spec_tune <- logistic_reg() %>%
+    set_engine('glmnet') %>%
+    set_args(mixture = 1, penalty = tune()) %>%
+    set_mode('classification')
+
+logistic_rec <- recipe(HighLead~medageE + medincomeE + NumHouseE + PopE + propFamilyHouseholds + propHomesBuiltPre1950 + SSIRecpE + CensusAgeE + tested + MarrCoupleChldU3E +testRatio, data = lasso_log_variables) %>%
+    step_normalize(all_numeric_predictors()) %>% 
+    step_dummy(all_nominal_predictors())
+
+log_lasso_wf <- workflow() %>% 
+    add_recipe(logistic_rec) %>%
+    add_model(logistic_lasso_spec_tune) 
+
+penalty_grid <- grid_regular(
+  penalty(range = c(-10, 10)), 
+  levels = 100)
+
+tune_output <- tune_grid( 
+  log_lasso_wf, 
+  resamples = data_cv10, 
+  metrics = metric_set(roc_auc,accuracy),
+  control = control_resamples(save_pred = TRUE, event_level = 'second'),
+  grid = penalty_grid 
+)
+
+autoplot(tune_output) + theme_classic()
+
+# BEST SE PENALTY
+best_se_penalty <- select_by_one_std_err(tune_output, metric = 'roc_auc', desc(penalty)) 
+best_se_penalty
+
+final_fit_se <- finalize_workflow(log_lasso_wf, best_se_penalty) %>%
+    fit(data = lasso_log_variables)
+
+# Variables not driven to 0: medageE, medincomeE, propHomesBuiltPre1950, tested, testRatio
+final_fit_se %>% tidy()
+
+# VARIABLE IMPORTANCE
+glmnet_output <- final_fit_se %>% extract_fit_engine()
+    
+bool_predictor_exclude <- glmnet_output$beta==0
+
+var_imp <- sapply(seq_len(nrow(bool_predictor_exclude)), function(row) {
+    this_coeff_path <- bool_predictor_exclude[row,]
+    ncol(bool_predictor_exclude) - which.min(this_coeff_path) + 1
+})
+
+var_imp_data <- tibble(
+    var_name = rownames(bool_predictor_exclude),
+    var_imp = var_imp
+)
+var_imp_data %>% arrange(desc(var_imp))
+```
+
+We note our top variables are median age, proportions of home built before 1950, median income, and tested. We decide to continue our analysis by using the testRatio rather than tested variable. testRatio will be able to consider the number of children that are eligible for testing while tested is an absolute number. Values of testRatio greater than 1 suggusts that children are being tested more than once. 
+
+## Matern Random Effect Models
+
+We decide to use a random effect model through the the X and Y coordinates in the centroids. We are able to do so by creating a numeric factor representing the coordinates of sampled locations. We fit a constant mu (smoothness parameter) for easier computational purposes. Because we have the matern correlation coefficient, we do assume isotropic. We use this model as it is an alternative way to account for spatial correlation, by imposing a correlation strucutre on the random effect so that each census tract are spatially correlated. When two regions are farther away, we expect the correlation between them to get lower. 
+
+We fit two different models, one with our designated important variables from lasso and another with an interaction between old homes and income category. The interaction between proportion of old homes and income category suggests that income plays a different role among high lead levels conditioned on proportion of hold homes. Perhaps if we are at a high income level and have high proportion of old homes, we may see reduced probability of high lead levels due to the ability to renovate. As long as rho is not zero, we are accounting for spatial correlation. Large rho value indicates that regions are farther apart can be correlated. 
 
 Interpretation is the same as every model. 
 
@@ -233,26 +304,27 @@ summary(mod2)
 
 Now that we have our two models, we can evaluate them. Note, that we use a threshold of 70% to predict if a census tract is to be considered in the high lead category or not. Meaning that if the logistic regression gives us a probability of .70 or higher, we will have a hard prediction that the census area is high lead.
 
-The signs of all coefficients make sense, as income increases, the log odds ratio decreases by -0.16 for every 1000 dollar increase in median income. This is checks with our understanding as the more income a household has, the more likely they will be able to remodel and replace lead pipes. The proportion of homes built before 1950 seems to be the most statistically significant coefficient. As per the first model, a percentage increase in a proportion of homes built before 1950 will increase log odds by .22. 
+The signs of all coefficients make sense, as income increases, the log odds ratio decreases by -0.16 for every 1000 dollar increase in median income. This is in check with our understanding as the more income a household has, the more likely they will be able to remodel and replace lead pipes. Additionally, the more income a census tract has, the more newer houses we may see. The proportion of homes built before 1950 seems to be the most statistically significant coefficient. As per the first model, a percentage increase in a proportion of homes built before 1950 will increase log odds by .22. The greatest impact in determining high lead census tracts would be the test ratio. The test ratio is the number of tests administered within the census tract divided by the number of children eligible for testing. However, a census tract with exposure to high lead levels will most likely be testing more often than census tracts without high levels of exposure. 
 
-Our interaction terms in the second model were all non-significant. 
+Our interaction terms in the second model were all non-significant. Meaning, under the model, income did not impact high lead differently despite being conditioned on the proportion of houses built before 1950. 
+
+Spatial random effect will help improve the prediction because it is using neighboring information to account for that spatial correlation, doing so more in the mean structure and actually change the prediction, conditioned on random effects and getting more precise and improved conditions, rather than marginal mean prediction. Hence why we have a 100% prediction accuracy for both models, because of the random effect that is able to capture variations that are unobservant. 
 
 ```{r}
+mod1data <- final_lasso_preds %>% 
+  mutate(medincomeE = medincomeE/1000,
+         propHomesBuiltPre1950 = propHomesBuiltPre1950*100)
 mod1_prediction <- mod1data %>% 
-  mutate(logodds = predict(mod1, data = final_lasso_preds),
-         odds = exp(logodds),
-         probability = odds/(1+odds)) %>% 
+  mutate(probability = predict(mod1, data = final_lasso_preds)) %>% 
   mutate(predHighLead = case_when(probability >= 0.7~1,
                                   probability < 0.7~0))
 
 Accuracy_mod1 <- final_lasso_preds %>% 
-  mutate(logodds = predict(mod1, data = final_lasso_preds),
-         odds = exp(logodds),
-         probability = odds/(1+odds)) %>% 
-  mutate(predHighLead = case_when(probability >= 0.80~1,
-                                  probability < 0.80~0)) %>% 
-  mutate(Correct = case_when(predHighLead == HighLead ~ 1,
-                             predHighLead != HighLead ~ 0)) %>% 
+  mutate(probability = predict(mod1, data = final_lasso_preds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.70~1,
+                                  probability < 0.70~0)) %>% 
+  mutate(Correct = case_when(predHighLead == HighLead ~ "correct",
+                             predHighLead != HighLead ~ "incorrect")) %>% 
   st_drop_geometry() %>% 
   group_by(Correct) %>% 
   count()
@@ -264,24 +336,24 @@ mod2data <- final_lasso_preds%>%
                                     medincomeE >= 100001 ~ "high"))  %>% 
   mutate(medincomeE = medincomeE/1000,
          propHomesBuiltPre1950 = propHomesBuiltPre1950*100) 
+
 mod2_prediction <- mod2data %>% na.omit() %>% 
-  mutate(logodds = predict(mod2, data = mod2data),
-         odds = exp(logodds),
-         probability = odds/(1+odds)) %>% 
-  mutate(predHighLead = case_when(probability >= 0.8~1,
-                                  probability < 0.8~0))
+  mutate(probability = predict(mod2, data = mod2data)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.7~"correct",
+                                  probability < 0.7~"incorrect"))
 
 Accuracy_mod2 <- mod2data %>% na.omit() %>% 
-  mutate(logodds = predict(mod2, data = final_lasso_preds),
-         odds = exp(logodds),
-         probability = odds/(1+odds)) %>% 
-  mutate(predHighLead = case_when(probability >= 0.80~1,
-                                  probability < 0.80~0)) %>% 
-  mutate(Correct = case_when(predHighLead == HighLead ~ 1,
-                             predHighLead != HighLead ~ 0)) %>% 
+  mutate(probability = predict(mod2, data = final_lasso_preds)) %>% 
+  mutate(predHighLead = case_when(probability >= 0.70~1,
+                                  probability < 0.70~0)) %>% 
+  mutate(Correct = case_when(predHighLead == HighLead ~ "correct",
+                             predHighLead != HighLead ~ "incorrect")) %>% 
   st_drop_geometry() %>% 
   group_by(Correct) %>% 
   count()
+
+Accuracy_mod1
+Accuracy_mod2
 ```
 
 ```{r}
@@ -610,6 +682,8 @@ The SSI and proportion of homes built before 1950 variables are both insignifica
 # Limitations
 
 One of the main limitations in our analysis was data. While we are incredibly thankful to have access to public lead data and demographics on the census tract level, we had been hoping to complete a spatial-temporal analysis looking at the percent of tests with EBLLs in each tract each year dating back to the early 2000s. Unfortunately, the Minnesota Department of Health did not have this data on hand. An additional goal of our was to look at building-specific data available through ArcGIS on lead piping for the St. Paul Regional Water Services (SPRWS) area and incorporate it into our analysis. However, we ran out of time to learn how to web scrape this and so this will be a task for the near future. One other limitation related to the data for this project is that many of the variables we used are estimates. For example, mean tract age is estimated from ACS and census data. Home values come from government valuations which is done for tax purposes. The fact that there is likely a fair amount of error in these estimates should be taken into account when interpreting model coefficients. Also related to the topic of modeling is that fact that no neighborhood structure we choose is going to be perfect. For example, we chose to use the KNN(4) neighborhood structure for our models, which defines four neighbors for every tract using distances between tract centroids. However, it is possible that tracts could be similar in other ways. Tracts close in distance could be incredibly different due to a highway running between them, while tracts further apart but both bordering the river could actually be more similar. 
+
+Furthermore, our models will not be the best to predict new data outside of our dataset. If we have a new census tract added, it will be difficult to account for the spatial corrrelation. The new observation may be farther away in distance that it will become indepdent and we will not gain the extra preditive ability. However, we can use the distrubitions from the matern random effect models to attempt in making a prediction for a new area. Unfortunately, we are not able to explain everything. 
 
 # Conclusions
 

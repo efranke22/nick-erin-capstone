@@ -139,7 +139,7 @@ lead_census %>%
 
 ## Who is getting tested?
 
-A large factor of obtaining high lead percentages is related to how often an area is tested, as the more tests issued, the more likely we will record a high lead percentage since the census tract is taking precautions. It is interesting  there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. These census tracts seem to be outside of the Metropolitan area and more spread out around our location of study. 
+A large factor of obtaining high lead percentages is related to how often an area is tested, as the more tests issued, the more likely we will record a high lead percentage since the census tract is taking precautions and responding to factors that already cause EBLL. It is interesting that there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. These census tracts seem to be outside of the Metropolitan area and more spread out around our location of study. 
 
 ```{r}
 lead_census_clean <- lead_census %>%
@@ -159,6 +159,7 @@ lead_census_clean %>%
         plot.title = element_markdown(family = "mono", size = 9))+
   scale_fill_viridis_c()
 ```
+Graphing the location of these census tracts, they seem to fall outside of the main metropolitan area. This may be a result of poor news and communication in terms of safely precautions for high lead levels. 
 
 Within our data set, we factor the testing ratio and high lead exposure and note some interesting patterns with regards to testing ratios. We see that there seems to be several newer homes in census tracts that are in the high lead factor but are not getting tested, this may be a result of ignorance or delayed news. Among the census tracts that have high testing ratios, areas with relatively older houses are getting tested more often, which is intuitive as older homes tend to have lead pipes. 
 
@@ -733,7 +734,7 @@ Furthermore, our models will not be the best to predict new data outside of our 
 
 Throughout our research report, we focused on what seems to be correlated to high lead levels. We anlyzed data from the **7-county Twin Cities metropolitan area** using public data provided by the **Minnesota Department of Health** over the period of 2015-2019 [@mdhdata]. We fit LASSO models to pick out "important" variables and utilize different spatial correlation regressions to obtain accurate standard errors on the coefficients. 
 
-Overall, the household age and median income of census tracts seem to be the most important factors when looking at the variation in high lead levels. This is intuitive as old houses, mentioned earlier, tend to have older pipes, more dust, paint chips, all of which have a causal effect leading to high lead levels. Among houses with high lead levels, tract population and proportions of homes built between 1950-1969 seems to have lower EBLL comapred to census tracts with more houses built before 1950. 
+Overall, the household age and median income of census tracts seem to be the most important factors when looking at the variation in high lead levels. This is intuitive as old houses, mentioned earlier, tend to have older pipes, more dust, paint chips, all of which have a causal effect leading to high lead levels. Among houses with high lead levels, tract population and proportions of homes built between 1950-1969 seems to have lower EBLL compared to census tracts with more houses built before 1950. 
 
 Furthermore among census tracts with high lead exposure, there is a specific subgroup that does not test often, meaning they test less than once per child, and also live in newer houses. This is dangerous as families living in these census tracts may go on about their rountine thinking living in a newer household is safe when in reality there may be other factors that contribute to high lead exposure. This is especially concerning as testing rates tend to be lower in these census tracts. For future research, it will be worthwhile to investigate which census tracts are getting tested more often than others. 
 

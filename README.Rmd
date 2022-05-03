@@ -139,7 +139,7 @@ lead_census %>%
 
 ## Who is getting tested?
 
-A large factor of obtaining high lead percentages is related to how often an area is tested, as the more tests issued, the more likely we will record a high lead percentage since the census tract is taking precautions. It is interesting  there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. These census tracts seem to be outside of the Metropolitan area and more spread out around our location of study. 
+A large factor of obtaining high lead percentages is related to how often an area is tested, as the more tests issued, the more likely we will record a high lead percentage since the census tract is taking precautions and responding to factors that already cause EBLL. It is interesting that there is a population, within high lead exposure, of people living in newer houses that aren't getting tested. These census tracts seem to be outside of the Metropolitan area and more spread out around our location of study. 
 
 ```{r}
 lead_census_clean <- lead_census %>%
@@ -151,7 +151,7 @@ lead_census_clean %>%
   ggplot()+
   geom_sf(aes(fill = WhyUNoTest), lwd = 0.2, color = "white")+
   theme_classic()+
-  labs(title = "Places with Highlead, new houses but not getting tested", fill = "")+
+  labs(title = "Places with EBLL, new houses but not getting tested", fill = "")+
   theme(axis.line = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(),
@@ -159,6 +159,7 @@ lead_census_clean %>%
         plot.title = element_markdown(family = "mono", size = 9))+
   scale_fill_viridis_c()
 ```
+Graphing the location of these census tracts, they seem to fall outside of the main metropolitan area. This may be a result of poor news and communication in terms of safely precautions for high lead levels. 
 
 Within our data set, we factor the testing ratio and high lead exposure and note some interesting patterns with regards to testing ratios. We see that there seems to be several newer homes in census tracts that are in the high lead factor but are not getting tested, this may be a result of ignorance or delayed news. Among the census tracts that have high testing ratios, areas with relatively older houses are getting tested more often, which is intuitive as older homes tend to have lead pipes. 
 
@@ -180,16 +181,27 @@ lead_testing %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
   facet_wrap(~multipleTest, labeller = as_labeller(facet_names)) +
   theme_classic() +
   labs(y="", x="Average Census House Age (In years)", fill ="Lead Level") +
-  scale_fill_manual(values = c("red", "navy"), labels = c("Low","High"))
+  scale_fill_manual(values = c("red", "navy"), labels = c("Low","High"))+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"), 
+        axis.title = element_markdown(family="mono", size = 8),
+        legend.title = element_markdown(family = "mono", size = 8),
+        legend.text = element_markdown(family = "mono"))
   
 
 lead_testing %>%
   filter(HighLead == 1) %>%
   ggplot(aes(x=medincomeE, fill = multipleTest))+
   geom_density(alpha=0.5)+
-  theme_classic()+
   labs(fill ="", x = "Median Income in Census Tract", y = "")+
-  scale_fill_manual(values = c("red", "navy"), labels = c("1 Test or Less","More Than 1 Test"))
+  scale_fill_manual(values = c("red", "navy"), labels = c("1 Test or Less","More Than 1 Test")) +
+  theme_classic()+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"), 
+        axis.title = element_markdown(family="mono", size = 8),
+        legend.text = element_markdown(family = "mono"))
 ```
 
 Furthermore, higher income census tracts are getting tested less compared to lower income census tracts. This is intuitive as lower income census tracts seem to be at more risk in terms of living in older houses and thus more exposed to high lead. 
@@ -286,7 +298,43 @@ var_imp_data <- tibble(
 var_imp_data %>% arrange(desc(var_imp))
 ```
 
-We note our top variables are median age, proportions of home built before 1950, median income, and tested. We decide to continue our analysis by using the testRatio rather than tested variable. testRatio will be able to consider the number of children that are eligible for testing while tested is an absolute number. Values of testRatio greater than 1 suggusts that children are being tested more than once. 
+```{r}
+final_output <- final_fit_se %>% predict(new_data = lasso_log_variables, type='prob') %>% bind_cols(lasso_log_variables)
+
+final_output %>%
+    roc_curve(HighLead, .pred_1,event_level = 'second') %>%
+    autoplot()
+
+threshold_output <- final_output %>%
+    threshold_perf(truth = HighLead, estimate = .pred_0, thresholds = seq(0,1,by=.01)) 
+
+threshold_output %>%
+    filter(.metric == 'j_index') %>%
+    ggplot(aes(x = .threshold, y = .estimate)) +
+    geom_line() +
+    labs(y = 'J-index', x = 'threshold') +
+    theme_classic()
+
+#Chose a threshold of 0.85 to predict HighLead
+threshold_output %>%
+    filter(.metric == 'j_index') %>%
+    arrange(desc(.estimate))
+
+log_metrics <- metric_set(accuracy,sens,yardstick::spec)
+
+# Model gives an accuracy of 79.69% with a sensitivity of 87.7% and specificity of 77.05%
+final_output %>%
+    mutate(.pred_class = make_two_class_pred(.pred_0, levels(HighLead), threshold = .85)) %>%
+    log_metrics(truth = HighLead, estimate = .pred_class, event_level = 'second')
+
+# Final predictions 
+final_lasso_preds <- lead_census %>%
+  select(GEOID) %>%
+  right_join(final_output, by = "GEOID") %>%
+  mutate(.pred_class = make_two_class_pred(.pred_0, levels(HighLead), threshold = .85))
+```
+
+We note our top variables are median age, proportions of home built before 1950, median income, and tested. We decide to continue our analysis by using the testRatio rather than tested variable. testRatio will be able to consider the number of children that are eligible for testing while tested is an absolute number. Values of testRatio greater than 1 suggests that children are being tested more than once. 
 
 ## Matern Random Effect Models
 
@@ -314,9 +362,9 @@ Now that we have our two models, we can evaluate them. Note, that we use a thres
 
 The signs of all coefficients make sense, as income increases, the log odds ratio decreases by -0.16 for every 1000 dollar increase in median income. This is in check with our understanding as the more income a household has, the more likely they will be able to remodel and replace lead pipes. Additionally, the more income a census tract has, the more newer houses we may see. The proportion of homes built before 1950 seems to be the most statistically significant coefficient. As per the first model, a percentage increase in a proportion of homes built before 1950 will increase log odds by .22. The greatest impact in determining high lead census tracts would be the test ratio. The test ratio is the number of tests administered within the census tract divided by the number of children eligible for testing. However, a census tract with exposure to high lead levels will most likely be testing more often than census tracts without high levels of exposure. 
 
-Our interaction terms in the second model were all non-significant. Meaning, under the model, income did not impact high lead differently despite being conditioned on the proportion of houses built before 1950. 
+Our interaction terms in the second model were all non-significant. Meaning, under the model, category of income did not impact high lead differently despite being conditioned on the proportion of houses built before 1950. Although all statistically insignificant, income classes that suffered the most from greater houses built before 1950 were the census tracts with lowest median income.
 
-Spatial random effect will help improve the prediction because it is using neighboring information to account for that spatial correlation, doing so more in the mean structure and actually change the prediction, conditioned on random effects and getting more precise and improved conditions, rather than marginal mean prediction. Hence why we have a 100% prediction accuracy for both models, because of the random effect that is able to capture variations that are unobservant. 
+Why does our prediction have 100% accuracy? Spatial random effect will help improve the prediction because it is using neighboring information to account for that spatial correlation, doing so more in the mean structure and actually change the prediction, conditioned on random effects and getting more precise and improved conditions, rather than marginal mean prediction. Hence why we have a 100% prediction accuracy for both models, because of the random effect that is able to capture variations that are unobservant. 
 
 ```{r}
 mod1data <- final_lasso_preds %>% 
@@ -347,8 +395,8 @@ mod2data <- final_lasso_preds%>%
 
 mod2_prediction <- mod2data %>% na.omit() %>% 
   mutate(probability = predict(mod2, data = mod2data)) %>% 
-  mutate(predHighLead = case_when(probability >= 0.7~"correct",
-                                  probability < 0.7~"incorrect"))
+  mutate(predHighLead = case_when(probability >= 0.7~1,
+                                  probability < 0.7~0))
 
 Accuracy_mod2 <- mod2data %>% na.omit() %>% 
   mutate(probability = predict(mod2, data = final_lasso_preds)) %>% 
@@ -731,9 +779,9 @@ Furthermore, our models will not be the best to predict new data outside of our 
 
 Throughout our research report, we focused on what seems to be correlated to high lead levels. We anlyzed data from the **7-county Twin Cities metropolitan area** using public data provided by the **Minnesota Department of Health** over the period of 2015-2019 [@mdhdata]. We fit LASSO models to pick out "important" variables and utilize different spatial correlation regressions to obtain accurate standard errors on the coefficients. 
 
-Overall, the household age and median income of census tracts seem to be the most important factors when looking at the variation in high lead levels. This is intuitive as old houses, mentioned earlier, tend to have older pipes, more dust, paint chips, all of which have a causal effect leading to high lead levels. Among houses with high lead levels, tract population and proportions of homes built between 1950-1969 seems to have lower EBLL comapred to census tracts with more houses built before 1950. 
+Overall, the household age and median income of census tracts seem to be the most important factors when looking at the variation in high lead levels. This is intuitive as old houses, mentioned earlier, tend to have older pipes, more dust, paint chips, all of which have a causal effect leading to high lead levels. Among houses with high lead levels, tract population and proportions of homes built between 1950-1969 seems to have lower EBLL compared to census tracts with more houses built before 1950. 
 
-For future research, it might be worthwhile to investigate which census tracts are getting tested more often than others. 
+Furthermore among census tracts with high lead exposure, there is a specific subgroup that does not test often, meaning they test less than once per child, and also live in newer houses. This is potentially dangerous as families living in these census tracts may go on about their routine thinking living in a newer household is safe when in reality there may be other factors that contribute to high lead exposure. This is especially concerning as testing rates tend to be lower and EBLL are higher in these census tracts. For future research, it will be worthwhile to investigate which census tracts are getting tested more often than others and other observable that may capture the culture within a census tract with regards to lead levels. 
 
 # Acknowledgements 
 

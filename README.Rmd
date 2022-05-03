@@ -151,7 +151,7 @@ lead_census_clean %>%
   ggplot()+
   geom_sf(aes(fill = WhyUNoTest), lwd = 0.2, color = "white")+
   theme_classic()+
-  labs(title = "Places with Highlead, new houses but not getting tested", fill = "")+
+  labs(title = "Places with EBLL, new houses but not getting tested", fill = "")+
   theme(axis.line = element_blank(), 
         axis.text = element_blank(), 
         axis.ticks = element_blank(),
@@ -323,7 +323,7 @@ final_lasso_preds <- lead_census %>%
   mutate(.pred_class = make_two_class_pred(.pred_0, levels(HighLead), threshold = .85))
 ```
 
-We note our top variables are median age, proportions of home built before 1950, median income, and tested. We decide to continue our analysis by using the testRatio rather than tested variable. testRatio will be able to consider the number of children that are eligible for testing while tested is an absolute number. Values of testRatio greater than 1 suggusts that children are being tested more than once. 
+We note our top variables are median age, proportions of home built before 1950, median income, and tested. We decide to continue our analysis by using the testRatio rather than tested variable. testRatio will be able to consider the number of children that are eligible for testing while tested is an absolute number. Values of testRatio greater than 1 suggests that children are being tested more than once. 
 
 ## Matern Random Effect Models
 
@@ -770,7 +770,7 @@ Throughout our research report, we focused on what seems to be correlated to hig
 
 Overall, the household age and median income of census tracts seem to be the most important factors when looking at the variation in high lead levels. This is intuitive as old houses, mentioned earlier, tend to have older pipes, more dust, paint chips, all of which have a causal effect leading to high lead levels. Among houses with high lead levels, tract population and proportions of homes built between 1950-1969 seems to have lower EBLL compared to census tracts with more houses built before 1950. 
 
-Furthermore among census tracts with high lead exposure, there is a specific subgroup that does not test often, meaning they test less than once per child, and also live in newer houses. This is dangerous as families living in these census tracts may go on about their rountine thinking living in a newer household is safe when in reality there may be other factors that contribute to high lead exposure. This is especially concerning as testing rates tend to be lower in these census tracts. For future research, it will be worthwhile to investigate which census tracts are getting tested more often than others. 
+Furthermore among census tracts with high lead exposure, there is a specific subgroup that does not test often, meaning they test less than once per child, and also live in newer houses. This is potentially dangerous as families living in these census tracts may go on about their routine thinking living in a newer household is safe when in reality there may be other factors that contribute to high lead exposure. This is especially concerning as testing rates tend to be lower and EBLL are higher in these census tracts. For future research, it will be worthwhile to investigate which census tracts are getting tested more often than others and other observable that may capture the culture within a census tract with regards to lead levels. 
 
 # Acknowledgements 
 

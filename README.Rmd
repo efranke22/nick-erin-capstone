@@ -181,16 +181,27 @@ lead_testing %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
   facet_wrap(~multipleTest, labeller = as_labeller(facet_names)) +
   theme_classic() +
   labs(y="", x="Average Census House Age (In years)", fill ="Lead Level") +
-  scale_fill_manual(values = c("red", "navy"), labels = c("Low","High"))
+  scale_fill_manual(values = c("red", "navy"), labels = c("Low","High"))+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"), 
+        axis.title = element_markdown(family="mono", size = 8),
+        legend.title = element_markdown(family = "mono", size = 8),
+        legend.text = element_markdown(family = "mono"))
   
 
 lead_testing %>%
   filter(HighLead == 1) %>%
   ggplot(aes(x=medincomeE, fill = multipleTest))+
   geom_density(alpha=0.5)+
-  theme_classic()+
   labs(fill ="", x = "Median Income in Census Tract", y = "")+
-  scale_fill_manual(values = c("red", "navy"), labels = c("1 Test or Less","More Than 1 Test"))
+  scale_fill_manual(values = c("red", "navy"), labels = c("1 Test or Less","More Than 1 Test")) +
+  theme_classic()+
+  theme(plot.title.position = "plot", 
+        plot.title = element_markdown(family = "mono", size = 10), 
+        axis.text = element_markdown(family = "mono"), 
+        axis.title = element_markdown(family="mono", size = 8),
+        legend.text = element_markdown(family = "mono"))
 ```
 
 Furthermore, higher income census tracts are getting tested less compared to lower income census tracts. This is intuitive as lower income census tracts seem to be at more risk in terms of living in older houses and thus more exposed to high lead. 

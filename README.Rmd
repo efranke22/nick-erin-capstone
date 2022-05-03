@@ -171,17 +171,25 @@ lead_testing <- lead_census_clean %>%
          Homecat = cut(CensusAgeE, 3), 
          multipleTest = case_when(testRatio > 1 ~ "manyTest",
                                   TRUE ~ "lessTest"))
+facet_names <- c(
+                    "manyTest" = "More Than 1 Test Per Person",
+                    "lessTest" = "Less Than 1 Test Per Person")
 
-lead_census_clean %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
+lead_testing %>% ggplot(aes(x = CensusAgeE, fill = factor(HighLead)))+
   geom_density(alpha = 0.35)+
-  facet_wrap(~TestingHigh)
+  facet_wrap(~multipleTest, labeller = as_labeller(facet_names)) +
+  theme_classic() +
+  labs(y="", x="Average Census House Age (In years)", fill ="Lead Level") +
+  scale_fill_manual(values = c("red", "navy"), labels = c("Low","High"))
+  
 
 lead_testing %>%
   filter(HighLead == 1) %>%
   ggplot(aes(x=medincomeE, fill = multipleTest))+
   geom_density(alpha=0.5)+
   theme_classic()+
-  scale_fill_manual(values = c("red", "navy"))
+  labs(fill ="", x = "Median Income in Census Tract", y = "")+
+  scale_fill_manual(values = c("red", "navy"), labels = c("1 Test or Less","More Than 1 Test"))
 ```
 
 Furthermore, higher income census tracts are getting tested less compared to lower income census tracts. This is intuitive as lower income census tracts seem to be at more risk in terms of living in older houses and thus more exposed to high lead. 
@@ -191,7 +199,7 @@ Furthermore, higher income census tracts are getting tested less compared to low
 In the upcoming section, we will be modeling the binary outcome of whether a census tract is considered Highlead or not (1% or greater). 
 
 ```{r}
-mod1_prediction %>%
+lead_census %>%
   ggplot() +
   geom_sf(aes(fill = as.factor(HighLead)))+
   scale_fill_manual(values = c("navy", "red"))+
@@ -282,7 +290,7 @@ We note our top variables are median age, proportions of home built before 1950,
 
 ## Matern Random Effect Models
 
-We decide to use a random effect model through the the X and Y coordinates in the centroids. We are able to do so by creating a numeric factor representing the coordinates of sampled locations. We fit a constant mu (smoothness parameter) for easier computational purposes. Because we have the matern correlation coefficient, we do assume isotropic. We use this model as it is an alternative way to account for spatial correlation, by imposing a correlation strucutre on the random effect so that each census tract are spatially correlated. When two regions are farther away, we expect the correlation between them to get lower. 
+We decide to use a random effect model through the the X and Y coordinates in the centroids. We are able to do so by creating a numeric factor representing the coordinates of sampled locations. We fit a constant mu (smoothness parameter) for easier computational purposes. Because we have the matern correlation coefficient, we do assume isotropic. We use this model as it is an alternative way to account for spatial correlation, by imposing a correlation structure on the random effect so that each census tract are spatially correlated. When two regions are farther away, we expect the correlation between them to get lower. 
 
 We fit two different models, one with our designated important variables from lasso and another with an interaction between old homes and income category. The interaction between proportion of old homes and income category suggests that income plays a different role among high lead levels conditioned on proportion of hold homes. Perhaps if we are at a high income level and have high proportion of old homes, we may see reduced probability of high lead levels due to the ability to renovate. As long as rho is not zero, we are accounting for spatial correlation. Large rho value indicates that regions are farther apart can be correlated. 
 
@@ -687,6 +695,11 @@ Furthermore, our models will not be the best to predict new data outside of our 
 
 # Conclusions
 
+Throughout our research report, we focused on what seems to be correlated to high lead levels. We anlyzed data from the **7-county Twin Cities metropolitan area** using public data provided by the **Minnesota Department of Health** over the period of 2015-2019 [@mdhdata]. We fit LASSO models to pick out "important" variables and utilize different spatial correlation regressions to obtain accurate standard errors on the coefficients. 
+
+Overall, the household age and median income of census tracts seem to be the most important factors when looking at the variation in high lead levels. This is intuitive as old houses, mentioned earlier, tend to have older pipes, more dust, paint chips, all of which have a causal effect leading to high lead levels. Among houses with high lead levels, tract population and proportions of homes built between 1950-1969 seems to have lower EBLL comapred to census tracts with more houses built before 1950. 
+
+For future research, it might be worthwhile to investigate which census tracts are getting tested more often than others. 
 
 # Acknowledgements 
 

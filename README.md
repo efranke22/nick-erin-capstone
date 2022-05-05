@@ -1,33 +1,15 @@
 A Spatial Analysis of Elevated Blood Lead Levels in the Twin Cities
 Metropolitan Region
 ================
-Erin Franke and Nicholas Di
+Erin Franke and Nicholas Di,
 May 6, 2022
-
-    ## Reading layer `LakesAndRivers' from data source 
-    ##   `/Users/nicholasdi/Documents/GitHub/nick-erin-capstone/DataShapefiles/shp_water_lakes_rivers' 
-    ##   using driver `ESRI Shapefile'
-    ## Simple feature collection with 2313 features and 8 fields
-    ## Geometry type: MULTIPOLYGON
-    ## Dimension:     XY
-    ## Bounding box:  xmin: 419538.6 ymin: 4922700 xmax: 522665 ymax: 5029945
-    ## Projected CRS: NAD83 / UTM zone 15N
-
-    ## Reading layer `tl_2019_27_prisecroads' from data source 
-    ##   `/Users/nicholasdi/Documents/GitHub/nick-erin-capstone/DataShapefiles/tl_2019_27_prisecroads' 
-    ##   using driver `ESRI Shapefile'
-    ## Simple feature collection with 4309 features and 4 fields
-    ## Geometry type: LINESTRING
-    ## Dimension:     XY
-    ## Bounding box:  xmin: -97.23724 ymin: 43.4995 xmax: -89.58524 ymax: 49.00066
-    ## Geodetic CRS:  NAD83
 
 # Introduction
 
 When raising a child, parents go through lots of stress to keep their
 children safe and healthy. From using car seats to getting children
 vaccinated to working on speech and mobility development and beyond,
-there is a lot to think about. But one thing that may be overlooked in
+there is a lot to think about. But one aspect that may be overlooked in
 providing safe and healthy environment for a child is lead. Lead in
 paint, soil, air, or water is invisible to the naked eye and has no
 smell (“Prevent Children’s Exposure to Lead” 2021). However, children
@@ -39,38 +21,38 @@ including damage to the child’s brain and nervous system, slowed growth
 and development, as well as learning, hearing, speech, and behavior
 problems (“Prevent Children’s Exposure to Lead” 2021). If exposed to
 especially high levels of lead, children can face a brain condition
-known as encephalopathy, severe neurological damage, coma, and even
+known as encephalopathy, severe neurological damage, comas, and even
 death (“Annual Elevated Blood Lead Levels” 2020). Thus, without a
 question it is crucial to keep lead exposure to a minimum when raising a
 child.
 
-In this analysis, we analyzed elevated blood lead levels in the
-**7-county Twin Cities metropolitan area** using public data provided by
-the **Minnesota Department of Health** over the period of 2015-2019
-(Health, n.d.). To protect the privacy of individuals, the smallest
-granularity we were able to obtain this data was on the census tract
-level, meaning for each of the 691 census tracts in the Twin Cities
-metropolitan area we obtained information on how many children were
-tested and how many of those tests resulted in elevated blood lead
-levels. To have **elevated blood lead levels (EBLL)** means that a child
-has a confirmed result **at or above 5 micrograms of lead per deciliter
-of blood (mcg/dL)** (“Annual Elevated Blood Lead Levels” 2020). Children
-under 6 years of age are tested. The Minnesota Department of Health
-idenifies children living in the Minneapolis and Saint Paul city limits
-as children at a higher risk for lead exposure and recommends these
-children to receive blood lead testing at 1 and 2 years of age. This
-recommendation is warranted given that in 2019, between 1-2% of children
-in Minneapolis or St. Paul had an EBLL, which is double the statewide
-average and higher than any other region of Minnesota (“Annual Elevated
-Blood Lead Levels” 2020). Interestingly, the MDH has found children
-living in the Metro area but not living in the cities of Minneapolis or
-St. Paul are at a lower risk of lead exposure than the Greater Minnesota
-(non-Metro) are. Only about 0.3% of these children have high EBLL levels
+In this project, we analyzed elevated blood lead levels in the **7
+county Twin Cities metropolitan area** using public data provided by the
+**Minnesota Department of Health** over the period of 2015-2019 (Health,
+n.d.). To protect the privacy of individuals, the smallest granularity
+we were able to obtain this data was on the census tract level, meaning
+for each of the 691 census tracts in the Twin Cities metropolitan area
+we obtained information on how many children were tested and how many of
+those tests resulted in elevated blood lead levels. To have **elevated
+blood lead levels (EBLLs)** means that a child has a confirmed result
+**at or above 5 micrograms of lead per deciliter of blood (mcg/dL)**
+(“Annual Elevated Blood Lead Levels” 2020). Children under 6 years of
+age are tested. The Minnesota Department of Health identifies children
+living in the Minneapolis and Saint Paul city limits as children at a
+higher risk for lead exposure and recommends these children to receive
+blood lead testing at 1 and 2 years of age. This recommendation is
+warranted given that in 2019, between 1-2% of children in Minneapolis or
+St. Paul had EBLLs, which is double the statewide average and higher
+than any other region of Minnesota (“Annual Elevated Blood Lead Levels”
+2020). Interestingly, the MDH has found children living in the Metro
+area but not living in the cities of Minneapolis or St. Paul are at a
+lower risk of lead exposure than the Greater Minnesota (non-Metro) are.
+Only about 0.3% of these children have elevated blood lead levels
 whereas about 0.8% of children living in MN outside the metro area have
-high EBLL levels. As a result, to best explore this contrast between
-Minneapolis-Saint Paul and the suburban region, this project will solely
-focus on EBLL data from the 7 county Twin Cities metro area. This region
-is shown in navy on the road map of Minnesota below.
+elevated blood lead levels. As a result, to best explore this contrast
+between Minneapolis-Saint Paul and the suburban region, this project
+will solely focus on EBLL data from the 7 county Twin Cities metro area.
+This region is shown in navy on the road map of Minnesota below.
 
 ![](README_files/figure-gfm/unnamed-chunk-2-1.png)<!-- -->
 
@@ -84,7 +66,7 @@ be a “high lead tract” if at least 1% of the tests in the tract resulted
 in elevated blood lead levels (meaning 5+ mcg lead/dL). This left us
 with 106 “high lead” tracts and 585 “safe” tracts. The location of these
 “high lead” tracts in the Twin Cities metropolitan area can be seen
-below. It is clear that the majority of them fall in the
+below in red. It is clear that the majority of them fall in the
 Minneapolis-Saint Paul city limits.
 
 ![](README_files/figure-gfm/unnamed-chunk-3-1.png)<!-- -->
@@ -107,7 +89,7 @@ less than others holding other variables constant, we can shed light on
 that and advocate for resources to get specific tracts the testing they
 need and deserve given their exposure.
 
-To help us understand what is correlated with a tract being “high lead”,
+To help us understand what is correlated with a tract being “high lead,”
 we will need more than just the information provided by the MDH of tract
 lead levels. Using the **tidycensus** (Walker and Herman 2022) package
 in R, we can access a plethora of information on each census tract
@@ -152,121 +134,94 @@ largely in the 1960s and 70s. Lead-based paint and lead-contaminated
 dust are the most common sources of lead poisoning, and paint containing
 lead was not banned in the United States until 1978 (“Common Sources of
 Lead Poisoning,” n.d.). Therefore, any home built prior to 1978 could
-serve as an exposure threat to children. It ended up that on average
-56.1% percent of the homes in the pink tracts were built before 1979
-compared to 54.8% of homes in the safe lead tracts. With such a small
-difference, there has to be something else correlated with children
-testing for EBLLs in particular tracts. Looking into other variables, we
-found the pink high lead tracts have a slightly higher population
-density at about 2 people/1000
-![\\text{m}^2](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%5Ctext%7Bm%7D%5E2 "\text{m}^2")
-than the safe lead tracts at 1.4 people/1000
-![\\text{m}^2](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%5Ctext%7Bm%7D%5E2 "\text{m}^2").
-Additionally, these pink high lead tracts have an estimated median
-income of $63,431, whereas the safe lead tracts have an estimated median
-income of almost $87,661. Lead exposure can also come through occupation
-(people exposed to lead through jobs in fields such as auto repair,
-mining, pipe fitting, battery manufacturing, painting, and construction
-can bring it home on their clothing), soil, pottery, herbal and folk
-remedies, the ingredient tamarind in candy, and cosmetics (“Lead
-Poisoning” 2022). Given the significant difference in median income
-between the pink high lead tracts and the safe lead tracts, it is
-possible that residents from the pink high lead tracts live a different
-lifestyle than residents in the safe lead tracts that causes them to be
-exposed to lead at a higher rate. While it’s clear we can’t fully solve
-this mystery given the data we have, the identification of these
-somewhat unexpected “high lead” tracts is crucial as it can help direct
-resources and information toward these tracts in order to reduce lead
-exposure.
+certainly serve as an exposure threat to children. It ended up that on
+average 56.1% percent of the homes in the pink tracts were built before
+1979 compared to 54.8% of homes in the safe lead tracts. With such a
+small difference, there has to be something else correlated with a
+higher proportion of tests with EBLLs in particular tracts. Looking into
+other variables, we found the pink high lead tracts have a slightly
+higher population density at about 2 people/1000 m<sup>2</sup> than the
+safe lead tracts at 1.4 people/1000 m<sup>2</sup>. Additionally, these
+pink high lead tracts have an estimated median income of $63,431,
+whereas the safe lead tracts have an estimated median income of almost
+$87,661. Lead exposure can also come through occupation (people exposed
+to lead through jobs in fields such as auto repair, mining, pipe
+fitting, battery manufacturing, painting, and construction can bring it
+home on their clothing), soil, pottery, herbal and folk remedies, the
+ingredient tamarind in candy, and cosmetics (“Lead Poisoning” 2022).
+Given the significant difference in median income between the pink high
+lead tracts and the safe lead tracts, it is possible that residents from
+the pink high lead tracts live a different lifestyle than residents in
+the safe lead tracts that causes them to be exposed to lead at a higher
+rate. Exactly how this lead exposure is happening is a mystery that we
+cannot currently solve given the data we have, but the identification of
+these somewhat unexpected “high lead” tracts is crucial as it can help
+direct resources and information toward these tracts in order to reduce
+lead exposure.
 
 ## Who is getting tested?
 
 A large factor of obtaining high lead percentages is related to how
-often an area is tested, as the more tests issued, the more likely we
-will record a high lead percentage since the census tract is taking
-precautions. It is interesting there is a population, within high lead
-exposure, of people living in newer houses that aren’t getting tested.
-These census tracts seem to be outside of the Metropolitan area and more
-spread out around our location of study.
+often an area is tested. As more tests are issued, it is more likely we
+will observe a high lead percentage since the census tract is taking
+precautions and responding to factors that already cause EBLLs. It is
+interesting that there is a population within “high lead” census tracts
+of tracts with newer homes that aren’t getting tested at a high rate. We
+defined a “high rate” of testing to be when the number of tests in the
+tract is less than the estimated number of children who are 0 to 5 age.
+These specific census tracts are shown in yellow on the map below and
+seem to be located outside of the cities. We are unsure exactly why this
+is, but perhaps it is a result of poor news and communication in terms
+of safely precautions for high lead levels.
 
 ![](README_files/figure-gfm/unnamed-chunk-7-1.png)<!-- -->
 
-Within our data set, we factor the testing ratio and high lead exposure
-and note some interesting patterns with regards to testing ratios. We
-see that there seems to be several newer homes in census tracts that are
-in the high lead factor but are not getting tested, this may be a result
-of ignorance or delayed news. Among the census tracts that have high
-testing ratios, areas with relatively older houses are getting tested
-more often, which is intuitive as older homes tend to have lead pipes.
+Doing some further investigation using our binary variables indicative
+of high lead and high testing as well as an estimated tract home age
+variable, we note some interesting patterns. As we noted with the map
+above, there are several tracts with on average newer homes that have
+over 1% of tests with EBLLs but are not getting tested at a high rate.
+Again, this may be the result of ignorance or delayed news.
+Additionally, among the census tracts that have a high testing ratio,
+tracts denoted as “high lead” tend to have a significantly higher
+estimated home age, which is intuitive as older homes tend to have lead
+pipes. Furthermore, looking at the relationship between estimated tract
+median income and testing, we see higher income census tracts are
+getting tested *less* compared to lower income census tracts. This is
+intuitive as lower income census tracts may be more risk in terms of
+living in older houses and thus face higher lead exposure.
 
-![](README_files/figure-gfm/unnamed-chunk-8-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-8-2.png)<!-- -->
-
-Furthermore, higher income census tracts are getting tested less
-compared to lower income census tracts. This is intuitive as lower
-income census tracts seem to be at more risk in terms of living in older
-houses and thus more exposed to high lead.
+<img src="README_files/figure-gfm/unnamed-chunk-8-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-8-2.png" width="45%" />
 
 ## Modeling
 
 In the upcoming section, we will be modeling the binary outcome of
-whether a census tract is considered Highlead or not (1% or greater).
-
-![](README_files/figure-gfm/unnamed-chunk-9-1.png)<!-- -->
+whether a census tract is considered to be “high lead” or not. As a
+reminder, we denoted a tract as “high lead” if over 1% of tests
+contained elevated blood lead levels. The majority of these tracts are
+located in the Twin Cities.
 
 ## Lasso
 
-We use a Lasso Logistic Regression to distinguish important variables in
+We use LASSO logistic regression to distinguish important variables in
 predicting census tracts with high lead concentrations. After tuning for
 the best penalty, we discovered that income, proportions of homes built
-before 1950, testing ratio, and median age of the census tract are
-important variables in modeling the variance of high lead levels.
-However, it is difficult to account for spatial correlation, so we will
-not be interpreting the output and standard errors. Instead, we will use
-the important variables and fit it with a random effect model to account
-for spatial correlation. Spatial correlation is very important in our
-study as census tracts that are close together will share many similar
-characteristics in regards to income, community, etc that will result in
-correlated residuals if left unaccounted for.
+before 1950, testing ratio (number of tests/child aged 0 to 5), number
+of tests total, and median age of the census tract are important
+variables in modeling the variance of high lead levels. However, it is
+difficult to account for spatial correlation using LASSO, so we will not
+be interpreting the output and standard errors. Instead, we will take
+the important variables LASSO identified and fit a random effect model.
+The one exception to this is we will drop variable indicating the total
+number of tests and soley use testing ratio, as it is better indicative
+of whether the number of tests a tract receives is appropriate for their
+population. This random effect model will account for spatial
+correlation. Spatial correlation is very important in our study as
+census tracts that are close together will share many similar
+characteristics in regards to income, community, and more. Leaving this
+unaccounted for will result in correlated residuals.
 
-![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->
-
-    ## # A tibble: 1 × 9
-    ##   penalty .metric .estimator  mean     n std_err .config            .best .bound
-    ##     <dbl> <chr>   <chr>      <dbl> <int>   <dbl> <chr>              <dbl>  <dbl>
-    ## 1  0.0486 roc_auc binary     0.898    10  0.0133 Preprocessor1_Mod… 0.907  0.894
-
-    ## # A tibble: 12 × 3
-    ##    term                  estimate penalty
-    ##    <chr>                    <dbl>   <dbl>
-    ##  1 (Intercept)            -2.09    0.0486
-    ##  2 medageE                -0.500   0.0486
-    ##  3 medincomeE             -0.211   0.0486
-    ##  4 NumHouseE               0       0.0486
-    ##  5 PopE                    0       0.0486
-    ##  6 propFamilyHouseholds    0       0.0486
-    ##  7 propHomesBuiltPre1950   0.556   0.0486
-    ##  8 SSIRecpE                0       0.0486
-    ##  9 CensusAgeE              0       0.0486
-    ## 10 tested                  0.234   0.0486
-    ## 11 MarrCoupleChldU3E       0       0.0486
-    ## 12 testRatio               0.0711  0.0486
-
-    ## # A tibble: 11 × 2
-    ##    var_name              var_imp
-    ##    <chr>                   <dbl>
-    ##  1 medageE                    78
-    ##  2 propHomesBuiltPre1950      78
-    ##  3 medincomeE                 72
-    ##  4 tested                     72
-    ##  5 testRatio                  69
-    ##  6 MarrCoupleChldU3E          46
-    ##  7 propFamilyHouseholds       43
-    ##  8 PopE                       41
-    ##  9 NumHouseE                  36
-    ## 10 SSIRecpE                   36
-    ## 11 CensusAgeE                 20
-
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-11-2.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-10-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-10-2.png)<!-- -->
 
     ## # A tibble: 101 × 4
     ##    .threshold .metric .estimator .estimate
@@ -290,30 +245,23 @@ correlated residuals if left unaccounted for.
     ## 2 sens     binary         0.877
     ## 3 spec     binary         0.771
 
-We note our top variables are median age, proportions of home built
-before 1950, median income, and tested. We decide to continue our
-analysis by using the testRatio rather than tested variable. testRatio
-will be able to consider the number of children that are eligible for
-testing while tested is an absolute number. Values of testRatio greater
-than 1 suggusts that children are being tested more than once.
-
 ## Matern Random Effect Models
 
-We decide to use a random effect model through the the X and Y
-coordinates in the centroids. We are able to do so by creating a numeric
-factor representing the coordinates of sampled locations. We fit a
-constant mu (smoothness parameter) for easier computational purposes.
-Because we have the matern correlation coefficient, we do assume
-isotropic. We use this model as it is an alternative way to account for
-spatial correlation, by imposing a correlation structure on the random
-effect so that each census tract are spatially correlated. When two
-regions are farther away, we expect the correlation between them to get
-lower.
+Our random effect model accounts for spatial correlation by
+incorporating the X and Y coordinates of the centroid, or center, of
+each census tract. We are able to do so by creating a numeric factor
+representing the coordinates of sampled locations. We fit a constant mu
+(smoothness parameter) for easier computational purposes. Because we
+have the matern correlation coefficient, we do assume isotropic. We use
+this model as it is an alternative way to account for spatial
+correlation, by imposing a correlation structure on the random effect so
+that each census tract are spatially correlated. When two regions are
+farther away, we expect the correlation between them to get lower.
 
 We fit two different models, one with our designated important variables
-from lasso and another with an interaction between old homes and income
-category. The interaction between proportion of old homes and income
-category suggests that income plays a different role among high lead
+from LASSO and another with an interaction between the proportion of
+homes built before 1950 and a categorical income variable. This
+interaction suggests that income plays a different role among high lead
 levels conditioned on proportion of hold homes. Perhaps if we are at a
 high income level and have high proportion of old homes, we may see
 reduced probability of high lead levels due to the ability to renovate.
@@ -321,111 +269,44 @@ As long as rho is not zero, we are accounting for spatial correlation.
 Large rho value indicates that regions are farther apart can be
 correlated.
 
-Interpretation is the same as every model.
-
-    ## formula: HighLead ~ medincomeE + propHomesBuiltPre1950 + testRatio + medageE + 
-    ##     Matern(1 | X + Y)
-    ## Estimation of corrPars and lambda by Laplace ML approximation (p_v).
-    ## Estimation of fixed effects by Laplace ML approximation (p_v).
-    ## Estimation of lambda by 'outer' ML, maximizing p_v.
-    ## family: binomial( link = logit ) 
-    ##  ------------ Fixed effects (beta) ------------
-    ##                       Estimate Cond. SE t-value
-    ## (Intercept)            32.4784  20.7119  1.5681
-    ## medincomeE             -0.1604   0.1787 -0.8977
-    ## propHomesBuiltPre1950   0.2219   0.1022  2.1719
-    ## testRatio               6.6685   5.4954  1.2135
-    ## medageE                -1.3692   0.7421 -1.8450
-    ##  --------------- Random effects ---------------
-    ## Family: gaussian( link = identity ) 
-    ##                    --- Correlation parameters:
-    ##     1.nu    1.rho 
-    ##    0.500 6642.954 
-    ##            --- Variance parameters ('lambda'):
-    ## lambda = var(u) for u ~ Gaussian; 
-    ##    X + Y  :  748.2  
-    ## # of obs: 690; # of groups: X + Y, 690 
-    ##  ------------- Likelihood values  -------------
-    ##                         logLik
-    ## p_v(h) (marginal L): -142.5096
-
-    ## formula: HighLead ~ IncomeCategory * propHomesBuiltPre1950 + testRatio + 
-    ##     medageE + Matern(1 | X + Y)
-    ## Estimation of corrPars and lambda by Laplace ML approximation (p_v).
-    ## Estimation of fixed effects by Laplace ML approximation (p_v).
-    ## Estimation of lambda by 'outer' ML, maximizing p_v.
-    ## family: binomial( link = logit ) 
-    ##  ------------ Fixed effects (beta) ------------
-    ##                                              Estimate Cond. SE  t-value
-    ## (Intercept)                                  15.31315  44.8573  0.34137
-    ## IncomeCategorylow                           -18.57662  35.1235 -0.52889
-    ## IncomeCategorymedhigh                        -7.16378  39.8087 -0.17996
-    ## IncomeCategorymedlow                         -6.29450  33.5302 -0.18773
-    ## propHomesBuiltPre1950                        -0.04207   2.1893 -0.01922
-    ## testRatio                                     8.73074   6.0693  1.43851
-    ## medageE                                      -1.02158   0.8532 -1.19728
-    ## IncomeCategorylow:propHomesBuiltPre1950       0.59873   2.2074  0.27123
-    ## IncomeCategorymedhigh:propHomesBuiltPre1950   0.16059   2.2122  0.07259
-    ## IncomeCategorymedlow:propHomesBuiltPre1950    0.16993   2.1977  0.07732
-    ##  --------------- Random effects ---------------
-    ## Family: gaussian( link = identity ) 
-    ##                    --- Correlation parameters:
-    ##     1.nu    1.rho 
-    ##   0.5000 426.2338 
-    ##            --- Variance parameters ('lambda'):
-    ## lambda = var(u) for u ~ Gaussian; 
-    ##    X + Y  :  1087  
-    ## # of obs: 689; # of groups: X + Y, 689 
-    ##  ------------- Likelihood values  -------------
-    ##                         logLik
-    ## p_v(h) (marginal L): -132.7579
-
-Now that we have our two models, we can evaluate them. Note, that we use
+Now that we have our two models, we can evaluate them. We decided to use
 a threshold of 70% to predict if a census tract is to be considered in
-the high lead category or not. Meaning that if the logistic regression
-gives us a probability of .70 or higher, we will have a hard prediction
-that the census area is high lead.
+the high lead category or not. This means that if the logistic
+regression gives us a predicted probability of .70 or higher, we will
+make a hard prediction that the census area is high lead.
 
-The signs of all coefficients make sense, as income increases, the log
+The signs of all coefficients make sense. As income increases, the log
 odds ratio decreases by -0.16 for every 1000 dollar increase in median
-income. This is in check with our understanding as the more income a
-household has, the more likely they will be able to remodel and replace
-lead pipes. Additionally, the more income a census tract has, the more
-newer houses we may see. The proportion of homes built before 1950 seems
-to be the most statistically significant coefficient. As per the first
-model, a percentage increase in a proportion of homes built before 1950
-will increase log odds by .22. The greatest impact in determining high
-lead census tracts would be the test ratio. The test ratio is the number
-of tests administered within the census tract divided by the number of
-children eligible for testing. However, a census tract with exposure to
-high lead levels will most likely be testing more often than census
-tracts without high levels of exposure.
+income holding other variables constant. This is in check with our
+understanding as the more income a household has, the more likely they
+will be able to remodel and replace lead pipes. Additionally, the more
+income a census tract has, the more newer houses we may see. The
+proportion of homes built before 1950 is the most statistically
+significant coefficient. As per the first model, a percentage increase
+in a proportion of homes built before 1950 will increase log odds of a
+tract being high lead by .22 holding other variables constant. Finally,
+the coefficient on the test ratio variable is also positive, indicating
+an increase in odds of a census tract being high lead as their test
+ratio increases. This is intuitive as tracts that are testing more are
+likely doing so because they face higher exposure.
 
 Our interaction terms in the second model were all non-significant.
-Meaning, under the model, income did not impact high lead differently
-despite being conditioned on the proportion of houses built before 1950.
+Meaning, under the model, category of income did not impact high lead
+differently despite being conditioned on the proportion of houses built
+before 1950. Although all statistically insignificant, income classes
+that suffered the most from greater houses built before 1950 were the
+census tracts with lowest median income.
 
-Spatial random effect will help improve the prediction because it is
-using neighboring information to account for that spatial correlation,
-doing so more in the mean structure and actually change the prediction,
-conditioned on random effects and getting more precise and improved
-conditions, rather than marginal mean prediction. Hence why we have a
-100% prediction accuracy for both models, because of the random effect
-that is able to capture variations that are unobservant.
+Why does our prediction have 100% accuracy? Spatial random effect will
+help improve the prediction because it is using neighboring information
+to account for that spatial correlation, doing so more in the mean
+structure and actually change the prediction, conditioned on random
+effects and getting more precise and improved conditions, rather than
+marginal mean prediction. Hence why we have a 100% prediction accuracy
+for both models, because of the random effect that is able to capture
+variations that are unobservant.
 
-    ## # A tibble: 1 × 2
-    ## # Groups:   Correct [1]
-    ##   Correct     n
-    ##   <chr>   <int>
-    ## 1 correct   690
-
-    ## # A tibble: 1 × 2
-    ## # Groups:   Correct [1]
-    ##   Correct     n
-    ##   <chr>   <int>
-    ## 1 correct   689
-
-![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-14-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-14-3.png)<!-- -->
+<img src="README_files/figure-gfm/unnamed-chunk-13-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-13-2.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-13-3.png" width="45%" />
 
 # Modeling the percent of children by census tract with EBLLs
 
@@ -436,13 +317,13 @@ denoted as “high lead” have the same proportion of tests indicating
 EBLLs. For the 106 “high lead” tracts, the distribution of the
 proportion of tests indicating EBLLs is shown below.
 
-![](README_files/figure-gfm/unnamed-chunk-15-1.png)<!-- -->
+![](README_files/figure-gfm/unnamed-chunk-14-1.png)<!-- -->
 
 In order to better understand this distribution and what is correlated
 with certain tracts having a higher percentage of tests with EBLLs than
 others, we will build a model for this percentage using solely the 106
 “high lead” tracts. Similar to our logistic model building process to
-predict whether or not a tract is “high lead”, we will begin with a
+predict whether or not a tract is “high lead,” we will begin with a
 LASSO regression model. Variables that remain in the model after the
 shrinkage process can be thought of as most important at helping us
 identify why certain tracts have a higher percentage of tests with EBLLs
@@ -457,11 +338,11 @@ percentage of tests with EBLLs. Interestingly, population and amount of
 SSI both showed a negative relationship with percentage of tests with
 EBLLs, meaning more highly populated tracts tend to have a lower
 proportion of tests with EBLLs holding other variables constant.
-Additionally, tracts receiving more SSI tend to have a lower proportion
-of tests with EBLLs holding other variables constant. These
-relationships are shown in the plots below.
+Additionally, tracts receiving more SSI per household tend to have a
+lower proportion of tests with EBLLs holding other variables constant.
+These relationships are shown in the plots below.
 
-<img src="README_files/figure-gfm/unnamed-chunk-17-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-17-2.png" width="45%" />
+<img src="README_files/figure-gfm/unnamed-chunk-16-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-16-2.png" width="45%" />
 
 The reasoning for this phenomena could be that such higher populated and
 impoverished tracts are viewed “higher risk” for lead exposure and have
@@ -470,17 +351,17 @@ received greater resources to prevent it thus far.
 Now that we have our model, we can evaluate it. Looking first at our
 prediction errors, the model appears relatively solid with a mean
 estimated error of 1.5%. While this is good news, our model must also
-have residuals that do not have spatial autocorrelation. Spatial
-autocorrelation means residuals in one census tract are related to the
-residuals in the census tracts around it, which is problematic because
-we violate the assumption of independence of residuals and jeopardize
-the validity of hypothesis tests. We can test for spatial
-autocorrelation with something called the Moran’s I test. In order to
-run the Moran’s I test, we must decide in what way we want to define
-census tracts as “close”. In other words, we must define a
+have residuals that do not have spatial autocorrelation. As we have
+discussed, spatial autocorrelation means residuals in one census tract
+are related to the residuals in the census tracts around it, which is
+problematic because we violate the assumption of independence of
+residuals and jeopardize the validity of hypothesis tests. We can test
+for spatial autocorrelation with something called the Moran’s I test. In
+order to run the Moran’s I test, we must decide in what way we want to
+define census tracts as “close.” In other words, we must define a
 **neighborhood structure**. There are many options when defining a
 neighborhood structure. We can define tracts as neighbors if they touch
-at all, even just at a on point such as a corner. This is called the
+at all, even just at one point such as a corner. This is called the
 Queen neighborhood structure. Another option is the Rook neighborhood
 structure, which defines tracts as neighbors if they share an edge (more
 than just a corner). Neighbors can also be defined using distance. The
@@ -494,19 +375,7 @@ neighbors gives a nice balance between not having too many neighbors
 few neighbors, making it harder to pick up on spatial correlation. The
 KNN(4) structure is shown below.
 
-![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
-
-    ## 
-    ##  Moran I test under randomisation
-    ## 
-    ## data:  lasso_results$resid  
-    ## weights: Wb    
-    ## 
-    ## Moran I statistic standard deviate = 4.1422, p-value = 3.44e-05
-    ## alternative hypothesis: two.sided
-    ## sample estimates:
-    ## Moran I statistic       Expectation          Variance 
-    ##       0.236081076      -0.009523810       0.003515754
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->
 
 Using the Moran’s I test with the KNN(4) structure shown above, there is
 very strong evidence to reject our null hypothesis of no spatial
@@ -526,7 +395,7 @@ neighborhood structure, we compared them using BIC and the Moran’s I
 test. From the Moran’s I test we learned the SAR model yielded strong
 evidence in support of independent residuals. This evidence was
 significantly weaker for the CAR model, implying remaining spatial
-autocorrelation in the residuals. The BIC (a criterion for model
+autocorrelation in the residuals. The BIC (a criterion used for model
 selection) was also superior for the SAR model in comparison to the CAR
 model, and thus we decided to proceed with the SAR structure. While we
 tested multiple other SAR models with different combinations of
@@ -541,16 +410,19 @@ below. In reality - as shown in the dotplot earlier in this modeling
 section - seven tracts had a percent of tests with EBLLs over 6% and two
 tracts had levels over 10%. Thus, our model does not quite capture as
 large of a distribution in tract percentages as well as we might have
-liked. ![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+liked.
 
-However, our model does indeed do a good job of not systematically over
-or under-predicting particular areas of the Twin Cities metropolitan
-area. We see that tracts both inside and outside city limits have a mix
-of positive and negative residuals and there are several areas where
-percent of tests with EBLLs are over predicted in one tract and under
-predicted in its neighboring tract. Given the strong evidence that
-spatial autocorrelation was accounted for from the Moran’s I test, this
-is not surprising.
+![](README_files/figure-gfm/unnamed-chunk-20-1.png)<!-- -->
+
+Despite this, our model does indeed do a good job of not systematically
+over or under-predicting particular areas of the Twin Cities
+metropolitan area. We see that tracts both inside and outside city
+limits have a mix of positive and negative residuals and there are
+several areas where percent of tests with EBLLs are over predicted in
+one tract and under predicted in its neighboring tract. Given the strong
+evidence that spatial autocorrelation was accounted for from the Moran’s
+I test, this is not surprising.
+
 ![](README_files/figure-gfm/unnamed-chunk-21-1.png)<!-- -->
 
 The biggest takeaway from our model is what we can learn about lead
@@ -558,35 +430,48 @@ exposure patterns using it. Takeaways are generally similar to the LASSO
 regression model we fit, but we now have more certainty in our
 coefficient estimates and their significance given we are not breaking
 the assumption of independent residuals. The two significant
-coefficients in our model are tract population and the proportion of
-homes built from 1950 to 1969 in each tract. Both coefficients are
-significant on the
-![\\alpha=0.05](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%5Calpha%3D0.05 "\alpha=0.05")
-level. With regard to population, we estimate for every additional 1000
-people residing in a tract that the proportion of tests with EBLLs falls
-on average 0.4%, holding other variables constant. Given that census
-tracts are intended to have similar populations (ideally \~4000 people),
-this might not seem practically significant at first. However, the 106
-“high lead” tracts have populations ranging from about 2,000 to over
-10,000 people per tract, with the majority falling in the 3000 to 6000
-range. Thus, comparing a 6,000 resident to 3,000 resident tract, we’d
-expect the 6,000 resident tract to have a percent of tests with EBLLs
-about 1.2% lower than that of the 3,000 resident tract, which is a
+coefficients on the *α* = 0.05 level in our model are tract population
+and the proportion of homes built from 1950 to 1969 in each tract. With
+regard to population, we estimate for every additional 1000 people
+residing in a tract that the proportion of tests with EBLLs falls on
+average 0.4%, holding other variables constant. Given that census tracts
+are intended to have similar populations (ideally \~4000 people), this
+might not seem practically significant at first. However, the 106 “high
+lead” tracts have populations ranging from about 2,000 to over 10,000
+people per tract, with the majority falling in the 3000 to 6000 range.
+Thus, comparing a 6,000 resident to 3,000 resident tract, we’d expect
+the 6,000 resident tract to have a percent of tests with EBLLs about
+1.2% lower than that of the 3,000 resident tract, which is a
 considerable difference. When looking at our second significant
 variable, we learn that with every 10% increase in the proportion of
 homes built between 1950 and 1969 we can expect the percent of tests
-with EBLLs to fall about *0.4%* (CHECK), holding other variables
-constant. This relationship is shown in the graph below on the left and
-is rather interesting when contrasted to the graph on the right, which
-displays proportion of homes built before 1950 versus percent of tests
-with EBLLs for “high lead” tracts. The key takeaway here is that as
-tracts tend to have more homes built between 1950-1969, **their percent
-of tests with EBLLs tends to fall**, while as tracts tend to have more
-homes built prior to 1950 their **percent of tests with EBLLs tends to
-rise**. Given that lead paint was not banned in the United States until
-1978, this contrasting relationship is incredibly surprising!
+with EBLLs to decrease about 0.4%, holding other variables constant.
+This relationship is shown in the graph below on the left and is rather
+interesting when contrasted to the graph on the right, which displays
+proportion of homes built before 1950 versus percent of tests with EBLLs
+for “high lead” tracts. The key takeaway here is that as tracts tend to
+have more homes built between 1950-1969, **their percent of tests with
+EBLLs tends to fall**, while as tracts tend to have more homes built
+prior to 1950 their **percent of tests with EBLLs tends to rise**. Given
+that lead paint was not banned in the United States until 1978, this
+contrasting relationship is surprising and implies lead paint is not the
+sole factor causing tracts to have a high percent of tests with EBLLs.
 
 <img src="README_files/figure-gfm/unnamed-chunk-22-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-22-2.png" width="45%" />
+
+To learn a little more about what might be happening, we created the
+following graph which shows the remaining home age distribution for high
+lead tracts based on the proportion of homes built from 1950-1969. We
+see that tracts with very few homes (less than 20%) built from 1950-1969
+are composed on average by over 50% of homes built before 1950. These
+tracts also have the smallest proportion of homes built from 1970-1989.
+As the proportion of home built 1950-1969 increases, the proportion of
+homes built before 1950 in the tract decreases and the proportion of
+homes built 1970-1989 increases. This implies overall higher average
+home age and helps to explain why we see that relationship we see in our
+model.
+
+![](README_files/figure-gfm/unnamed-chunk-23-1.png)<!-- -->
 
 The SSI and proportion of homes built before 1950 variables are both
 insignificant in this model, though have coefficient directions that
@@ -626,10 +511,10 @@ river could actually be more similar.
 
 Furthermore, our models will not be the best to predict new data outside
 of our dataset. If we have a new census tract added, it will be
-difficult to account for the spatial corrrelation. The new observation
-may be farther away in distance that it will become indepdent and we
-will not gain the extra preditive ability. However, we can use the
-distrubitions from the matern random effect models to attempt in making
+difficult to account for the spatial correlation. The new observation
+may be farther away in distance that it will become independent and we
+will not gain the extra predictive ability. However, we can use the
+distributions from the matern random effect models to attempt in making
 a prediction for a new area. Unfortunately, we are not able to explain
 everything.
 
@@ -643,25 +528,36 @@ fit LASSO models to pick out “important” variables and utilize different
 spatial correlation regressions to obtain accurate standard errors on
 the coefficients.
 
-Overall, the household age and median income of census tracts seem to be
-the most important factors when looking at the variation in high lead
-levels. This is intuitive as old houses, mentioned earlier, tend to have
-older pipes, more dust, paint chips, all of which have a causal effect
-leading to high lead levels. Among houses with high lead levels, tract
-population and proportions of homes built between 1950-1969 seems to
-have lower EBLL comapred to census tracts with more houses built before
-1950.
+Overall, the age of homes in the tract and median income of census
+tracts seem to be the most important factors when looking at the
+variation in high lead levels. This is intuitive as old houses,
+mentioned earlier, tend to have older pipes, more dust, paint chips, all
+of which have a causal effect leading to high lead levels. Among houses
+with high lead levels, as tract population increases and proportions of
+homes built between 1950-1969 increases we see that the percent of tests
+returning EBLLs decreases holding other variables constant.
 
-For future research, it might be worthwhile to investigate which census
-tracts are getting tested more often than others.
+Furthermore among census tracts with high lead exposure, there is a
+specific subgroup of tracts that do not test often (test less than once
+per child) and have a new home age. This is potentially dangerous as
+families living in these census tracts may go on about their routine
+thinking living in a newer household is safe when in reality there may
+be other factors that contribute to high lead exposure. This is
+especially concerning as testing rates tend to be lower and the percent
+of tests with EBLLs are higher in these census tracts. For future
+research, it will be worthwhile to investigate which census tracts are
+getting tested more often than others and look into other observable
+factors that may capture the culture within a census tract with regards
+to lead levels.
 
 # Acknowledgements
 
-Thank you to our professor Brianna Heggeseth for teaching us the mapping
-and modeling techniques used in this analysis, as well as for providing
-support and resources throughout this project. We also thank the
-Minnesota Department of Health and creators of the tidycensus package
-for providing publicly available data that made our work possible.
+We thank the Minnesota Department of Health and creators of the
+tidycensus package for providing publicly available data that made our
+work possible. We also give a big thank you to our professor Brianna
+Heggeseth for teaching us the mapping and modeling techniques used in
+this analysis, as well as for providing support and resources throughout
+this project.
 
 # References
 

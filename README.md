@@ -258,13 +258,15 @@ representing the coordinates of sampled locations. We fit a constant mu
 (smoothness parameter) for easier computational purposes. Because we
 have the matern correlation coefficient, we do assume isotropic, meaning
 that the covariance function depends only on the computational distance.
+
 We use this model as it is an alternative way to account for spatial
 correlation, by imposing a correlation structure on the random effect so
-that each census tract are spatially correlated. When two regions are
-farther away, we expect the correlation between them to get lower. Rho
-is a number that captures the spatial correlation, therefore a higher
-value of rho implies more spatial correlation being captured by the
-model.
+that each census tract are spatially correlated. In absence of the
+random effect, neighboring census tracts will have spatially correlated
+residuals. When two regions are farther away, we expect the correlation
+between them to get lower. Rho is a number that captures the spatial
+correlation, therefore a higher value of rho implies more spatial
+correlation being captured by the model.
 
 We fit two different models, one with our designated important variables
 from LASSO and another with an interaction between the proportion of

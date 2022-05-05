@@ -283,7 +283,7 @@ var_imp_data <- tibble(
 var_imp_data %>% arrange(desc(var_imp))
 ```
 
-```{r}
+```{r, include=FALSE, results='hide'}
 final_output <- final_fit_se %>% predict(new_data = lasso_log_variables, type='prob') %>% bind_cols(lasso_log_variables)
 
 final_output %>%

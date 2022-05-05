@@ -89,7 +89,7 @@ less than others holding other variables constant, we can shed light on
 that and advocate for resources to get specific tracts the testing they
 need and deserve given their exposure.
 
-To help us understand what is correlated with a tract being “high lead,”
+To help us understand what is correlated with a tract being “high lead”,
 we will need more than just the information provided by the MDH of tract
 lead levels. Using the **tidycensus** (Walker and Herman 2022) package
 in R, we can access a plethora of information on each census tract
@@ -140,24 +140,26 @@ average 56.1% percent of the homes in the pink tracts were built before
 small difference, there has to be something else correlated with a
 higher proportion of tests with EBLLs in particular tracts. Looking into
 other variables, we found the pink high lead tracts have a slightly
-higher population density at about 2 people/1000 m<sup>2</sup> than the
-safe lead tracts at 1.4 people/1000 m<sup>2</sup>. Additionally, these
-pink high lead tracts have an estimated median income of $63,431,
-whereas the safe lead tracts have an estimated median income of almost
-$87,661. Lead exposure can also come through occupation (people exposed
-to lead through jobs in fields such as auto repair, mining, pipe
-fitting, battery manufacturing, painting, and construction can bring it
-home on their clothing), soil, pottery, herbal and folk remedies, the
-ingredient tamarind in candy, and cosmetics (“Lead Poisoning” 2022).
-Given the significant difference in median income between the pink high
-lead tracts and the safe lead tracts, it is possible that residents from
-the pink high lead tracts live a different lifestyle than residents in
-the safe lead tracts that causes them to be exposed to lead at a higher
-rate. Exactly how this lead exposure is happening is a mystery that we
-cannot currently solve given the data we have, but the identification of
-these somewhat unexpected “high lead” tracts is crucial as it can help
-direct resources and information toward these tracts in order to reduce
-lead exposure.
+higher population density at about 2 people/1000
+![\\text{m}^2](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%5Ctext%7Bm%7D%5E2 "\text{m}^2")
+than the safe lead tracts at 1.4 people/1000
+![\\text{m}^2](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%5Ctext%7Bm%7D%5E2 "\text{m}^2").
+Additionally, these pink high lead tracts have an estimated median
+income of $63,431, whereas the safe lead tracts have an estimated median
+income of almost $87,661. Lead exposure can also come through occupation
+(people exposed to lead through jobs in fields such as auto repair,
+mining, pipe fitting, battery manufacturing, painting, and construction
+can bring it home on their clothing), soil, pottery, herbal and folk
+remedies, the ingredient tamarind in candy, and cosmetics (“Lead
+Poisoning” 2022). Given the significant difference in median income
+between the pink high lead tracts and the safe lead tracts, it is
+possible that residents from the pink high lead tracts live a different
+lifestyle than residents in the safe lead tracts that causes them to be
+exposed to lead at a higher rate. Exactly how this lead exposure is
+happening is a mystery that we cannot currently solve given the data we
+have, but the identification of these somewhat unexpected “high lead”
+tracts is crucial as it can help direct resources and information toward
+these tracts in order to reduce lead exposure.
 
 ## Who is getting tested?
 
@@ -247,16 +249,22 @@ unaccounted for will result in correlated residuals.
 
 ## Matern Random Effect Models
 
-Our random effect model accounts for spatial correlation by
+Essentially, a matern random effects model takes into account the
+correlation between points via the euclidean distance between
+coordinates. Our random effect model accounts for spatial correlation by
 incorporating the X and Y coordinates of the centroid, or center, of
 each census tract. We are able to do so by creating a numeric factor
 representing the coordinates of sampled locations. We fit a constant mu
 (smoothness parameter) for easier computational purposes. Because we
-have the matern correlation coefficient, we do assume isotropic. We use
-this model as it is an alternative way to account for spatial
+have the matern correlation coefficient, we do assume isotropic, meaning
+that the covariance function depends only on the computational distance.
+We use this model as it is an alternative way to account for spatial
 correlation, by imposing a correlation structure on the random effect so
 that each census tract are spatially correlated. When two regions are
-farther away, we expect the correlation between them to get lower.
+farther away, we expect the correlation between them to get lower. Rho
+is a number that captures the spatial correlation, therefore a higher
+value of rho implies more spatial correlation being captured by the
+model.
 
 We fit two different models, one with our designated important variables
 from LASSO and another with an interaction between the proportion of
@@ -265,15 +273,15 @@ interaction suggests that income plays a different role among high lead
 levels conditioned on proportion of hold homes. Perhaps if we are at a
 high income level and have high proportion of old homes, we may see
 reduced probability of high lead levels due to the ability to renovate.
-As long as rho is not zero, we are accounting for spatial correlation.
-Large rho value indicates that regions are farther apart can be
-correlated.
 
 Now that we have our two models, we can evaluate them. We decided to use
 a threshold of 70% to predict if a census tract is to be considered in
 the high lead category or not. This means that if the logistic
 regression gives us a predicted probability of .70 or higher, we will
-make a hard prediction that the census area is high lead.
+make a hard prediction that the census area is high lead. We chose a
+threshold of .70 as it is gives us the best sensitivity. In the context
+of EBLL, a threshold of 0.70 gives us the most accuracy in correctly
+determining a census tract with high lead levels.
 
 The signs of all coefficients make sense. As income increases, the log
 odds ratio decreases by -0.16 for every 1000 dollar increase in median
@@ -323,7 +331,7 @@ In order to better understand this distribution and what is correlated
 with certain tracts having a higher percentage of tests with EBLLs than
 others, we will build a model for this percentage using solely the 106
 “high lead” tracts. Similar to our logistic model building process to
-predict whether or not a tract is “high lead,” we will begin with a
+predict whether or not a tract is “high lead”, we will begin with a
 LASSO regression model. Variables that remain in the model after the
 shrinkage process can be thought of as most important at helping us
 identify why certain tracts have a higher percentage of tests with EBLLs
@@ -358,7 +366,7 @@ problematic because we violate the assumption of independence of
 residuals and jeopardize the validity of hypothesis tests. We can test
 for spatial autocorrelation with something called the Moran’s I test. In
 order to run the Moran’s I test, we must decide in what way we want to
-define census tracts as “close.” In other words, we must define a
+define census tracts as “close”. In other words, we must define a
 **neighborhood structure**. There are many options when defining a
 neighborhood structure. We can define tracts as neighbors if they touch
 at all, even just at one point such as a corner. This is called the
@@ -430,32 +438,34 @@ exposure patterns using it. Takeaways are generally similar to the LASSO
 regression model we fit, but we now have more certainty in our
 coefficient estimates and their significance given we are not breaking
 the assumption of independent residuals. The two significant
-coefficients on the *α* = 0.05 level in our model are tract population
-and the proportion of homes built from 1950 to 1969 in each tract. With
-regard to population, we estimate for every additional 1000 people
-residing in a tract that the proportion of tests with EBLLs falls on
-average 0.4%, holding other variables constant. Given that census tracts
-are intended to have similar populations (ideally \~4000 people), this
-might not seem practically significant at first. However, the 106 “high
-lead” tracts have populations ranging from about 2,000 to over 10,000
-people per tract, with the majority falling in the 3000 to 6000 range.
-Thus, comparing a 6,000 resident to 3,000 resident tract, we’d expect
-the 6,000 resident tract to have a percent of tests with EBLLs about
-1.2% lower than that of the 3,000 resident tract, which is a
-considerable difference. When looking at our second significant
-variable, we learn that with every 10% increase in the proportion of
-homes built between 1950 and 1969 we can expect the percent of tests
-with EBLLs to decrease about 0.4%, holding other variables constant.
-This relationship is shown in the graph below on the left and is rather
-interesting when contrasted to the graph on the right, which displays
-proportion of homes built before 1950 versus percent of tests with EBLLs
-for “high lead” tracts. The key takeaway here is that as tracts tend to
-have more homes built between 1950-1969, **their percent of tests with
-EBLLs tends to fall**, while as tracts tend to have more homes built
-prior to 1950 their **percent of tests with EBLLs tends to rise**. Given
-that lead paint was not banned in the United States until 1978, this
-contrasting relationship is surprising and implies lead paint is not the
-sole factor causing tracts to have a high percent of tests with EBLLs.
+coefficients on the
+![\\alpha=0.05](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%5Calpha%3D0.05 "\alpha=0.05")
+level in our model are tract population and the proportion of homes
+built from 1950 to 1969 in each tract. With regard to population, we
+estimate for every additional 1000 people residing in a tract that the
+proportion of tests with EBLLs falls on average 0.4%, holding other
+variables constant. Given that census tracts are intended to have
+similar populations (ideally \~4000 people), this might not seem
+practically significant at first. However, the 106 “high lead” tracts
+have populations ranging from about 2,000 to over 10,000 people per
+tract, with the majority falling in the 3000 to 6000 range. Thus,
+comparing a 6,000 resident to 3,000 resident tract, we’d expect the
+6,000 resident tract to have a percent of tests with EBLLs about 1.2%
+lower than that of the 3,000 resident tract, which is a considerable
+difference. When looking at our second significant variable, we learn
+that with every 10% increase in the proportion of homes built between
+1950 and 1969 we can expect the percent of tests with EBLLs to decrease
+about 0.4%, holding other variables constant. This relationship is shown
+in the graph below on the left and is rather interesting when contrasted
+to the graph on the right, which displays proportion of homes built
+before 1950 versus percent of tests with EBLLs for “high lead” tracts.
+The key takeaway here is that as tracts tend to have more homes built
+between 1950-1969, **their percent of tests with EBLLs tends to fall**,
+while as tracts tend to have more homes built prior to 1950 their
+**percent of tests with EBLLs tends to rise**. Given that lead paint was
+not banned in the United States until 1978, this contrasting
+relationship is surprising and implies lead paint is not the sole factor
+causing tracts to have a high percent of tests with EBLLs.
 
 <img src="README_files/figure-gfm/unnamed-chunk-22-1.png" width="45%" /><img src="README_files/figure-gfm/unnamed-chunk-22-2.png" width="45%" />
 
